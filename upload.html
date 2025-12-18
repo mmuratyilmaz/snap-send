@@ -4,7 +4,7 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-	<title>Photo Upload</title>
+	<title>Media Upload</title>
 	<style>
 		* {
 			margin: 0;
@@ -276,8 +276,8 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>📱 Photo Upload</h1>
-			<p>Send photos to your desktop</p>
+			<h1>📱 Media Upload</h1>
+			<p>Send photos & videos to your desktop</p>
 		</div>
 		<div class="status-bar">
 			<div style="display:flex;align-items:center;gap:8px">
@@ -287,20 +287,22 @@
 			<span class="status-text" id="imageCount">0/5</span>
 		</div>
 		<div class="upload-area" id="uploadArea">
-			<div class="upload-icon">📷</div>
-			<div class="upload-text">Tap to select photos</div>
-			<div class="upload-hint">or drag and drop</div>
+			<div class="upload-icon">📷🎬</div>
+			<div class="upload-text">Tap to select media</div>
+			<div class="upload-hint">Photos & videos</div>
 		</div>
 		<div class="action-buttons">
 			<button class="action-btn" id="cameraBtn"><span class="icon">📸</span><span>Camera</span></button>
 			<button class="action-btn" id="galleryBtn"><span class="icon">🖼️</span><span>Gallery</span></button>
+			<button class="action-btn" id="videoBtn"><span class="icon">🎬</span><span>Video</span></button>
 		</div>
 		<div class="preview-grid" id="previewGrid"></div>
 		<button class="send-btn hidden" id="sendBtn" disabled>Send (0)</button>
 		<div class="message hidden" id="message"></div>
 	</div>
-	<input type="file" id="cameraInput" accept="image/*" capture="environment">
-	<input type="file" id="galleryInput" accept="image/*" multiple>
+	<input type="file" id="cameraInput" accept="image/*,video/*" capture="environment">
+	<input type="file" id="galleryInput" accept="image/*,video/*" multiple>
+	<input type="file" id="videoInput" accept="video/*" capture="environment">
 	<script>
 		// XOR deşifreleme fonksiyonu
 		const EK = 'snap-send-2024-secure-key';
@@ -322,18 +324,19 @@
 		const B = 'main', encK = P.get('k'), K = encK ? xorDecrypt(encK) : null, M = 5;
 		let F = [];
 		const $ = id => document.getElementById(id);
+		const vB = $('videoBtn'), vI = $('videoInput');
 		const [sD, sT, iC, uA, cB, gB, cI, gI, pG, sB, msg] = [$('statusDot'), $('statusText'), $('imageCount'), $('uploadArea'), $('cameraBtn'), $('galleryBtn'), $('cameraInput'), $('galleryInput'), $('previewGrid'), $('sendBtn'), $('message')];
 		if (!S || !T || !K) { show('Invalid session', 'error'); sD.style.background = '#f44'; sT.textContent = 'Invalid'; } else { verify(); }
 		async function verify() { try { const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/sessions/${S}/.session`, { headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json' } }); if (r.ok) { const d = await r.json(), j = JSON.parse(atob(d.content)); if (j.token === T && Date.now() < j.expiresAt) { sT.textContent = 'Connected'; sD.style.background = '#0f8'; } else { show('Session expired', 'error'); sD.style.background = '#f44'; sT.textContent = 'Expired'; } } else { show('Session not found', 'error'); sD.style.background = '#f44'; sT.textContent = 'Not found'; } } catch (e) { sT.textContent = 'Error'; sD.style.background = '#fa0'; } }
-		uA.onclick = () => gI.click(); cB.onclick = () => cI.click(); gB.onclick = () => gI.click();
+		uA.onclick = () => gI.click(); cB.onclick = () => cI.click(); gB.onclick = () => gI.click(); vB.onclick = () => vI.click();
 		uA.ondragover = e => { e.preventDefault(); uA.classList.add('dragover'); }; uA.ondragleave = () => uA.classList.remove('dragover'); uA.ondrop = e => { e.preventDefault(); uA.classList.remove('dragover'); handle(e.dataTransfer.files); };
-		cI.onchange = e => handle(e.target.files); gI.onchange = e => handle(e.target.files); sB.onclick = upload;
-		function handle(files) { const rem = M - F.length, add = Array.from(files).slice(0, rem); for (const f of add) if (f.type.startsWith('image/')) { F.push(f); preview(f, F.length - 1); } ui(); }
-		function preview(f, i) { const r = new FileReader(); r.onload = e => { const d = document.createElement('div'); d.className = 'preview-item'; d.dataset.index = i; d.innerHTML = `<img src="${e.target.result}"><button class="remove-btn" onclick="remove(${i})">×</button>`; pG.appendChild(d); }; r.readAsDataURL(f); }
+		cI.onchange = e => handle(e.target.files); gI.onchange = e => handle(e.target.files); vI.onchange = e => handle(e.target.files); sB.onclick = upload;
+		function handle(files) { const rem = M - F.length, add = Array.from(files).slice(0, rem); for (const f of add) if (f.type.startsWith('image/') || f.type.startsWith('video/')) { F.push(f); preview(f, F.length - 1); } ui(); }
+		function preview(f, i) { const r = new FileReader(); r.onload = e => { const d = document.createElement('div'); d.className = 'preview-item'; d.dataset.index = i; if (f.type.startsWith('video/')) { d.innerHTML = `<video src="${e.target.result}" muted style="width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px">🎬</span><button class="remove-btn" onclick="remove(${i})">×</button>`; } else { d.innerHTML = `<img src="${e.target.result}"><button class="remove-btn" onclick="remove(${i})">×</button>`; } pG.appendChild(d); }; r.readAsDataURL(f); }
 		function remove(i) { F.splice(i, 1); pG.innerHTML = ''; F.forEach((f, j) => preview(f, j)); ui(); }
 		function ui() { iC.textContent = `${F.length}/${M}`; sB.textContent = `Send (${F.length})`; F.length > 0 ? (sB.classList.remove('hidden'), sB.disabled = false) : (sB.classList.add('hidden'), sB.disabled = true); }
-		async function upload() { if (!F.length) return; sB.disabled = true; sB.textContent = 'Uploading...'; const items = pG.querySelectorAll('.preview-item'); let ok = 0; for (let i = 0; i < F.length; i++) { items[i].classList.add('uploading'); try { await send(F[i], i); items[i].classList.remove('uploading'); items[i].classList.add('uploaded'); ok++; } catch (e) { items[i].classList.remove('uploading'); items[i].style.border = '2px solid #f44'; } } if (ok === F.length) { show(`${ok} photo(s) sent! ✓`, 'success'); sB.textContent = 'Done ✓'; setTimeout(() => { F = []; pG.innerHTML = ''; sB.classList.add('hidden'); msg.classList.add('hidden'); ui(); }, 3000); } else { show(`${ok}/${F.length} sent`, 'error'); sB.disabled = false; sB.textContent = 'Retry'; } }
-		async function send(f, i) { const t = Date.now(), x = f.name.split('.').pop() || 'jpg', n = `img_${t}_${i}.${x}`, p = `sessions/${S}/${n}`, b = await toB64(f), c = b.split(',')[1]; const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/${p}`, { method: 'PUT', headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Upload: ${n}`, content: c, branch: B }) }); if (!r.ok) throw new Error(`${r.status}`); return r.json(); }
+		async function upload() { if (!F.length) return; sB.disabled = true; sB.textContent = 'Uploading...'; const items = pG.querySelectorAll('.preview-item'); let ok = 0; for (let i = 0; i < F.length; i++) { items[i].classList.add('uploading'); try { await send(F[i], i); items[i].classList.remove('uploading'); items[i].classList.add('uploaded'); ok++; } catch (e) { items[i].classList.remove('uploading'); items[i].style.border = '2px solid #f44'; } } if (ok === F.length) { show(`${ok} file(s) sent! ✓`, 'success'); sB.textContent = 'Done ✓'; setTimeout(() => { F = []; pG.innerHTML = ''; sB.classList.add('hidden'); msg.classList.add('hidden'); ui(); }, 3000); } else { show(`${ok}/${F.length} sent`, 'error'); sB.disabled = false; sB.textContent = 'Retry'; } }
+		async function send(f, i) { const t = Date.now(), x = f.name.split('.').pop() || (f.type.startsWith('video/') ? 'mp4' : 'jpg'), pre = f.type.startsWith('video/') ? 'vid' : 'img', n = `${pre}_${t}_${i}.${x}`, p = `sessions/${S}/${n}`, b = await toB64(f), c = b.split(',')[1]; const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/${p}`, { method: 'PUT', headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Upload: ${n}`, content: c, branch: B }) }); if (!r.ok) throw new Error(`${r.status}`); return r.json(); }
 		function toB64(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); }); }
 		function show(t, type) { msg.textContent = t; msg.className = `message ${type}`; msg.classList.remove('hidden'); }
 	</script>

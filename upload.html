@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Photo Upload</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+			min-height: 100vh;
+			color: #fff;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			padding: 20px
+		}
+
+		.container {
+			width: 100%;
+			max-width: 400px;
+			display: flex;
+			flex-direction: column;
+			gap: 20px
+		}
+
+		.header {
+			text-align: center;
+			padding: 20px 0
+		}
+
+		.header h1 {
+			font-size: 24px;
+			font-weight: 600;
+			margin-bottom: 8px;
+			background: linear-gradient(90deg, #00d9ff, #00ff88);
+			-webkit-background-clip: text;
+			background-clip: text;
+			-webkit-text-fill-color: transparent
+		}
+
+		.header p {
+			color: rgba(255, 255, 255, .6);
+			font-size: 14px
+		}
+
+		.status-bar {
+			background: rgba(255, 255, 255, .1);
+			border-radius: 12px;
+			padding: 12px 16px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center
+		}
+
+		.status-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: #00ff88;
+			animation: pulse 2s infinite
+		}
+
+		@keyframes pulse {
+
+			0%,
+			100% {
+				opacity: 1
+			}
+
+			50% {
+				opacity: .5
+			}
+		}
+
+		.status-text {
+			font-size: 13px;
+			color: rgba(255, 255, 255, .8)
+		}
+
+		.upload-area {
+			background: rgba(255, 255, 255, .05);
+			border: 2px dashed rgba(255, 255, 255, .2);
+			border-radius: 16px;
+			padding: 40px 20px;
+			text-align: center;
+			cursor: pointer;
+			transition: all .3s
+		}
+
+		.upload-area:hover,
+		.upload-area.dragover {
+			border-color: #00d9ff;
+			background: rgba(0, 217, 255, .1)
+		}
+
+		.upload-icon {
+			font-size: 48px;
+			margin-bottom: 16px
+		}
+
+		.upload-text {
+			font-size: 16px;
+			color: rgba(255, 255, 255, .8);
+			margin-bottom: 8px
+		}
+
+		.upload-hint {
+			font-size: 12px;
+			color: rgba(255, 255, 255, .4)
+		}
+
+		.action-buttons {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 12px
+		}
+
+		.action-btn {
+			background: rgba(255, 255, 255, .1);
+			border: 1px solid rgba(255, 255, 255, .2);
+			border-radius: 12px;
+			padding: 16px;
+			color: #fff;
+			font-size: 14px;
+			cursor: pointer;
+			transition: all .2s;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 8px
+		}
+
+		.action-btn:hover {
+			background: rgba(255, 255, 255, .15);
+			transform: translateY(-2px)
+		}
+
+		.action-btn .icon {
+			font-size: 24px
+		}
+
+		.preview-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px
+		}
+
+		.preview-item {
+			position: relative;
+			aspect-ratio: 1;
+			border-radius: 8px;
+			overflow: hidden;
+			background: rgba(255, 255, 255, .1)
+		}
+
+		.preview-item img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover
+		}
+
+		.preview-item .remove-btn {
+			position: absolute;
+			top: 4px;
+			right: 4px;
+			width: 24px;
+			height: 24px;
+			background: rgba(255, 0, 0, .8);
+			border: none;
+			border-radius: 50%;
+			color: #fff;
+			font-size: 14px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center
+		}
+
+		.preview-item.uploading::after {
+			content: '';
+			position: absolute;
+			inset: 0;
+			background: rgba(0, 0, 0, .6)
+		}
+
+		.preview-item.uploading::before {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 24px;
+			height: 24px;
+			border: 2px solid rgba(255, 255, 255, .3);
+			border-top-color: #00d9ff;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			z-index: 1
+		}
+
+		@keyframes spin {
+			to {
+				transform: translate(-50%, -50%) rotate(360deg)
+			}
+		}
+
+		.preview-item.uploaded::after {
+			content: '✓';
+			position: absolute;
+			inset: 0;
+			background: rgba(0, 255, 136, .3);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 32px;
+			color: #00ff88
+		}
+
+		.send-btn {
+			background: linear-gradient(135deg, #00d9ff, #00ff88);
+			border: none;
+			border-radius: 12px;
+			padding: 16px;
+			color: #000;
+			font-size: 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all .2s
+		}
+
+		.send-btn:disabled {
+			opacity: .5;
+			cursor: not-allowed
+		}
+
+		.send-btn:not(:disabled):hover {
+			transform: translateY(-2px);
+			box-shadow: 0 8px 24px rgba(0, 217, 255, .3)
+		}
+
+		.message {
+			text-align: center;
+			padding: 20px;
+			border-radius: 12px;
+			font-size: 14px
+		}
+
+		.message.success {
+			background: rgba(0, 255, 136, .2);
+			color: #00ff88
+		}
+
+		.message.error {
+			background: rgba(255, 0, 0, .2);
+			color: #ff4444
+		}
+
+		.hidden {
+			display: none !important
+		}
+
+		input[type="file"] {
+			display: none
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div class="header">
+			<h1>📱 Photo Upload</h1>
+			<p>Send photos to your desktop</p>
+		</div>
+		<div class="status-bar">
+			<div style="display:flex;align-items:center;gap:8px">
+				<div class="status-dot" id="statusDot"></div>
+				<span class="status-text" id="statusText">Connecting...</span>
+			</div>
+			<span class="status-text" id="imageCount">0/5</span>
+		</div>
+		<div class="upload-area" id="uploadArea">
+			<div class="upload-icon">📷</div>
+			<div class="upload-text">Tap to select photos</div>
+			<div class="upload-hint">or drag and drop</div>
+		</div>
+		<div class="action-buttons">
+			<button class="action-btn" id="cameraBtn"><span class="icon">📸</span><span>Camera</span></button>
+			<button class="action-btn" id="galleryBtn"><span class="icon">🖼️</span><span>Gallery</span></button>
+		</div>
+		<div class="preview-grid" id="previewGrid"></div>
+		<button class="send-btn hidden" id="sendBtn" disabled>Send (0)</button>
+		<div class="message hidden" id="message"></div>
+	</div>
+	<input type="file" id="cameraInput" accept="image/*" capture="environment">
+	<input type="file" id="galleryInput" accept="image/*" multiple>
+	<script>
+		// XOR deşifreleme fonksiyonu
+		const EK = 'snap-send-2024-secure-key';
+		function xorDecrypt(enc) {
+			try {
+				// URL-safe base64 to normal base64
+				let b64 = enc.replace(/-/g, '+').replace(/_/g, '/');
+				while (b64.length % 4) b64 += '=';
+				const bytes = atob(b64);
+				let result = '';
+				for (let i = 0; i < bytes.length; i++) {
+					result += String.fromCharCode(bytes.charCodeAt(i) ^ EK.charCodeAt(i % EK.length));
+				}
+				return result;
+			} catch (e) { return null; }
+		}
+
+		const P = new URLSearchParams(location.search), S = P.get('s'), T = P.get('t'), R = P.get('r') || 'jumper-media', O = P.get('o') || 'mmuratyilmaz';
+		const B = 'main', encK = P.get('k'), K = encK ? xorDecrypt(encK) : null, M = 5;
+		let F = [];
+		const $ = id => document.getElementById(id);
+		const [sD, sT, iC, uA, cB, gB, cI, gI, pG, sB, msg] = [$('statusDot'), $('statusText'), $('imageCount'), $('uploadArea'), $('cameraBtn'), $('galleryBtn'), $('cameraInput'), $('galleryInput'), $('previewGrid'), $('sendBtn'), $('message')];
+		if (!S || !T || !K) { show('Invalid session', 'error'); sD.style.background = '#f44'; sT.textContent = 'Invalid'; } else { verify(); }
+		async function verify() { try { const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/sessions/${S}/.session`, { headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json' } }); if (r.ok) { const d = await r.json(), j = JSON.parse(atob(d.content)); if (j.token === T && Date.now() < j.expiresAt) { sT.textContent = 'Connected'; sD.style.background = '#0f8'; } else { show('Session expired', 'error'); sD.style.background = '#f44'; sT.textContent = 'Expired'; } } else { show('Session not found', 'error'); sD.style.background = '#f44'; sT.textContent = 'Not found'; } } catch (e) { sT.textContent = 'Error'; sD.style.background = '#fa0'; } }
+		uA.onclick = () => gI.click(); cB.onclick = () => cI.click(); gB.onclick = () => gI.click();
+		uA.ondragover = e => { e.preventDefault(); uA.classList.add('dragover'); }; uA.ondragleave = () => uA.classList.remove('dragover'); uA.ondrop = e => { e.preventDefault(); uA.classList.remove('dragover'); handle(e.dataTransfer.files); };
+		cI.onchange = e => handle(e.target.files); gI.onchange = e => handle(e.target.files); sB.onclick = upload;
+		function handle(files) { const rem = M - F.length, add = Array.from(files).slice(0, rem); for (const f of add) if (f.type.startsWith('image/')) { F.push(f); preview(f, F.length - 1); } ui(); }
+		function preview(f, i) { const r = new FileReader(); r.onload = e => { const d = document.createElement('div'); d.className = 'preview-item'; d.dataset.index = i; d.innerHTML = `<img src="${e.target.result}"><button class="remove-btn" onclick="remove(${i})">×</button>`; pG.appendChild(d); }; r.readAsDataURL(f); }
+		function remove(i) { F.splice(i, 1); pG.innerHTML = ''; F.forEach((f, j) => preview(f, j)); ui(); }
+		function ui() { iC.textContent = `${F.length}/${M}`; sB.textContent = `Send (${F.length})`; F.length > 0 ? (sB.classList.remove('hidden'), sB.disabled = false) : (sB.classList.add('hidden'), sB.disabled = true); }
+		async function upload() { if (!F.length) return; sB.disabled = true; sB.textContent = 'Uploading...'; const items = pG.querySelectorAll('.preview-item'); let ok = 0; for (let i = 0; i < F.length; i++) { items[i].classList.add('uploading'); try { await send(F[i], i); items[i].classList.remove('uploading'); items[i].classList.add('uploaded'); ok++; } catch (e) { items[i].classList.remove('uploading'); items[i].style.border = '2px solid #f44'; } } if (ok === F.length) { show(`${ok} photo(s) sent! ✓`, 'success'); sB.textContent = 'Done ✓'; setTimeout(() => { F = []; pG.innerHTML = ''; sB.classList.add('hidden'); msg.classList.add('hidden'); ui(); }, 3000); } else { show(`${ok}/${F.length} sent`, 'error'); sB.disabled = false; sB.textContent = 'Retry'; } }
+		async function send(f, i) { const t = Date.now(), x = f.name.split('.').pop() || 'jpg', n = `img_${t}_${i}.${x}`, p = `sessions/${S}/${n}`, b = await toB64(f), c = b.split(',')[1]; const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/${p}`, { method: 'PUT', headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: `Upload: ${n}`, content: c, branch: B }) }); if (!r.ok) throw new Error(`${r.status}`); return r.json(); }
+		function toB64(f) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); }); }
+		function show(t, type) { msg.textContent = t; msg.className = `message ${type}`; msg.classList.remove('hidden'); }
+	</script>
+</body>
+
+</html>

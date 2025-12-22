@@ -33,22 +33,13 @@
 
 		.header {
 			text-align: center;
-			padding: 20px 0
+			padding: 12px 0
 		}
 
 		.header h1 {
-			font-size: 24px;
+			font-size: 20px;
 			font-weight: 600;
-			margin-bottom: 8px;
-			background: linear-gradient(90deg, #00d9ff, #00ff88);
-			-webkit-background-clip: text;
-			background-clip: text;
-			-webkit-text-fill-color: transparent
-		}
-
-		.header p {
-			color: rgba(255, 255, 255, .6);
-			font-size: 14px
+			color: #00d9ff
 		}
 
 		.status-bar {
@@ -88,8 +79,8 @@
 		.upload-area {
 			background: rgba(255, 255, 255, .05);
 			border: 2px dashed rgba(255, 255, 255, .2);
-			border-radius: 16px;
-			padding: 40px 20px;
+			border-radius: 12px;
+			padding: 24px 16px;
 			text-align: center;
 			cursor: pointer;
 			transition: all .3s
@@ -102,8 +93,8 @@
 		}
 
 		.upload-icon {
-			font-size: 48px;
-			margin-bottom: 16px
+			font-size: 36px;
+			margin-bottom: 8px
 		}
 
 		.upload-text {
@@ -119,23 +110,23 @@
 
 		.action-buttons {
 			display: grid;
-			grid-template-columns: 1fr 1fr 1fr;
+			grid-template-columns: 1fr 1fr;
 			gap: 12px
 		}
 
 		.action-btn {
 			background: rgba(255, 255, 255, .1);
 			border: 1px solid rgba(255, 255, 255, .2);
-			border-radius: 12px;
-			padding: 16px;
+			border-radius: 10px;
+			padding: 12px;
 			color: #fff;
-			font-size: 14px;
+			font-size: 13px;
 			cursor: pointer;
 			transition: all .2s;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
-			gap: 8px
+			gap: 6px
 		}
 
 		.action-btn:hover {
@@ -276,8 +267,7 @@
 <body>
 	<div class="container">
 		<div class="header">
-			<h1>📱 Media Upload</h1>
-			<p>Send photos & videos to your desktop</p>
+			<h1>Media Upload</h1>
 		</div>
 		<div class="status-bar">
 			<div style="display:flex;align-items:center;gap:8px">
@@ -287,14 +277,13 @@
 			<span class="status-text" id="imageCount">0/5</span>
 		</div>
 		<div class="upload-area" id="uploadArea">
-			<div class="upload-icon">📷🎬</div>
-			<div class="upload-text">Tap to select media</div>
-			<div class="upload-hint">Photos & videos</div>
+			<div class="upload-icon">📷</div>
+			<div class="upload-text">Tap to select</div>
 		</div>
 		<div class="action-buttons">
 			<button class="action-btn" id="cameraBtn"><span class="icon">📸</span><span>Camera</span></button>
-			<button class="action-btn" id="galleryBtn"><span class="icon">🖼️</span><span>Gallery</span></button>
 			<button class="action-btn" id="videoBtn"><span class="icon">🎬</span><span>Video</span></button>
+			<button class="action-btn hidden" id="galleryBtn"></button>
 		</div>
 		<div class="preview-grid" id="previewGrid"></div>
 		<button class="send-btn hidden" id="sendBtn" disabled>Send (0)</button>

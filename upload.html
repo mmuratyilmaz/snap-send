@@ -321,7 +321,14 @@
 		}
 
 		const P = new URLSearchParams(location.search), S = P.get('s'), T = P.get('t'), R = P.get('r') || 'jumper-media', O = P.get('o') || 'mmuratyilmaz';
-		const B = 'main', encK = P.get('k'), K = encK ? xorDecrypt(encK) : null, M = 5;
+		const B = 'main', encK = P.get('k'), K = encK ? xorDecrypt(encK) : null;
+
+		// Gemini 3 Flash Limitleri
+		const M = 5;  // Max dosya sayısı
+		const MAX_IMAGE_SIZE_MB = 7;    // Görsel max 7MB
+		const MAX_VIDEO_SIZE_MB = 50;   // Video max 50MB
+		const MAX_VIDEO_DURATION_SEC = 45 * 60;  // Video max 45 dakika
+
 		let F = [];
 		const $ = id => document.getElementById(id);
 		const vB = $('videoBtn'), vI = $('videoInput');
@@ -333,7 +340,25 @@
 		cI.onchange = e => handle(e.target.files); gI.onchange = e => handle(e.target.files); vI.onchange = e => handle(e.target.files); sB.onclick = upload;
 		let isUploading = false;  // Upload kilidi - çoklu basma engeli
 		let uploadedFiles = new Set();  // Zaten yüklenmiş dosya isimleri
-		function handle(files) {
+
+		// Video süre kontrolü fonksiyonu
+		function getVideoDuration(file) {
+			return new Promise((resolve) => {
+				const video = document.createElement('video');
+				video.preload = 'metadata';
+				video.onloadedmetadata = () => { URL.revokeObjectURL(video.src); resolve(video.duration); };
+				video.onerror = () => { URL.revokeObjectURL(video.src); resolve(null); };
+				video.src = URL.createObjectURL(file);
+			});
+		}
+
+		// Dosya boyutu formatlama
+		function formatSize(bytes) {
+			if (bytes < 1024) return bytes + ' B';
+			if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+			return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+		}
+		async function handle(files) {
 			const rem = M - F.length;
 			const add = Array.from(files).slice(0, rem);
 			for (const f of add) {
@@ -342,10 +367,37 @@
 				const alreadyAdded = F.some(existing => `${existing.name}_${existing.size}` === fileKey);
 				if (alreadyAdded) continue;
 
-				if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
-					F.push(f);
-					preview(f, F.length - 1);
+				const isImage = f.type.startsWith('image/');
+				const isVideo = f.type.startsWith('video/');
+
+				if (!isImage && !isVideo) continue;
+
+				// Dosya boyutu kontrolü
+				const sizeMB = f.size / (1024 * 1024);
+				if (isImage && sizeMB > MAX_IMAGE_SIZE_MB) {
+					show(`Image too large: ${formatSize(f.size)} (max ${MAX_IMAGE_SIZE_MB}MB)`, 'error');
+					continue;
 				}
+				if (isVideo && sizeMB > MAX_VIDEO_SIZE_MB) {
+					show(`Video too large: ${formatSize(f.size)} (max ${MAX_VIDEO_SIZE_MB}MB)`, 'error');
+					continue;
+				}
+
+				// Video süre kontrolü
+				if (isVideo) {
+					try {
+						const duration = await getVideoDuration(f);
+						if (duration && duration > MAX_VIDEO_DURATION_SEC) {
+							const maxMins = Math.floor(MAX_VIDEO_DURATION_SEC / 60);
+							const actualMins = Math.floor(duration / 60);
+							show(`Video too long: ${actualMins}min (max ${maxMins}min)`, 'error');
+							continue;
+						}
+					} catch (e) { console.warn('Video duration check failed:', e); }
+				}
+
+				F.push(f);
+				preview(f, F.length - 1);
 			}
 			ui();
 		}

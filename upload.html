@@ -323,18 +323,85 @@
 		const P = new URLSearchParams(location.search), S = P.get('s'), T = P.get('t'), R = P.get('r') || 'jumper-media', O = P.get('o') || 'mmuratyilmaz';
 		const B = 'main', encK = P.get('k'), K = encK ? xorDecrypt(encK) : null;
 
-		// Gemini 3 Flash Limitleri
-		const M = 5;  // Max dosya sayısı
+		// Gemini 3 Flash Limitleri (ayrı ayrı sayılır)
+		const MAX_IMAGES = 5;           // Max görsel sayısı
+		const MAX_VIDEOS = 2;           // Max video sayısı
 		const MAX_IMAGE_SIZE_MB = 7;    // Görsel max 7MB
 		const MAX_VIDEO_SIZE_MB = 50;   // Video max 50MB
 		const MAX_VIDEO_DURATION_SEC = 45 * 60;  // Video max 45 dakika
 
-		let F = [];
+		// Session durumu
+		let isSessionValid = false;
+		let sessionCheckInterval = null;
+		const SESSION_CHECK_INTERVAL = 10000;  // 10 saniyede bir kontrol
+
+		let F = [];  // Dosya listesi
 		const $ = id => document.getElementById(id);
 		const vB = $('videoBtn'), vI = $('videoInput');
 		const [sD, sT, iC, uA, cB, gB, cI, gI, pG, sB, msg] = [$('statusDot'), $('statusText'), $('imageCount'), $('uploadArea'), $('cameraBtn'), $('galleryBtn'), $('cameraInput'), $('galleryInput'), $('previewGrid'), $('sendBtn'), $('message')];
-		if (!S || !T || !K) { show('Invalid session', 'error'); sD.style.background = '#f44'; sT.textContent = 'Invalid'; } else { verify(); }
-		async function verify() { try { const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/sessions/${S}/.session`, { headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json' } }); if (r.ok) { const d = await r.json(), j = JSON.parse(atob(d.content)); if (j.token === T && Date.now() < j.expiresAt) { sT.textContent = 'Connected'; sD.style.background = '#0f8'; } else { show('Session expired', 'error'); sD.style.background = '#f44'; sT.textContent = 'Expired'; } } else { show('Session not found', 'error'); sD.style.background = '#f44'; sT.textContent = 'Not found'; } } catch (e) { sT.textContent = 'Error'; sD.style.background = '#fa0'; } }
+
+		// Sayaçlar
+		function getCounts() {
+			let images = 0, videos = 0;
+			for (const f of F) {
+				if (f.type.startsWith('image/')) images++;
+				else if (f.type.startsWith('video/')) videos++;
+			}
+			return { images, videos };
+		}
+
+		// Bağlantı durumunu güncelle
+		function updateConnectionStatus(connected, text) {
+			isSessionValid = connected;
+			sD.style.background = connected ? '#0f8' : '#f44';
+			sT.textContent = text || (connected ? 'Connected' : 'Disconnected');
+			// Butonları devre dışı bırak
+			if (!connected) {
+				cB.disabled = true;
+				gB.disabled = true;
+				vB.disabled = true;
+				sB.disabled = true;
+				uA.style.pointerEvents = 'none';
+				uA.style.opacity = '0.5';
+			}
+		}
+
+		// Session kontrolü
+		async function checkSession() {
+			try {
+				const r = await fetch(`https://api.github.com/repos/${O}/${R}/contents/sessions/${S}/.session`, {
+					headers: { Authorization: `token ${K}`, Accept: 'application/vnd.github.v3+json' }
+				});
+				if (r.ok) {
+					const d = await r.json(), j = JSON.parse(atob(d.content));
+					if (j.token === T && Date.now() < j.expiresAt) {
+						if (!isSessionValid) updateConnectionStatus(true, 'Connected');
+						return true;
+					}
+				}
+				updateConnectionStatus(false, 'Session expired');
+				if (sessionCheckInterval) { clearInterval(sessionCheckInterval); sessionCheckInterval = null; }
+				return false;
+			} catch (e) {
+				updateConnectionStatus(false, 'Connection error');
+				return false;
+			}
+		}
+
+		// Başlangıç
+		if (!S || !T || !K) {
+			show('Invalid session', 'error');
+			updateConnectionStatus(false, 'Invalid');
+		} else {
+			// İlk kontrol
+			checkSession().then(valid => {
+				if (valid) {
+					// Periyodik kontrol başlat
+					sessionCheckInterval = setInterval(checkSession, SESSION_CHECK_INTERVAL);
+				}
+			});
+		}
+
 		uA.onclick = () => gI.click(); cB.onclick = () => cI.click(); gB.onclick = () => gI.click(); vB.onclick = () => vI.click();
 		uA.ondragover = e => { e.preventDefault(); uA.classList.add('dragover'); }; uA.ondragleave = () => uA.classList.remove('dragover'); uA.ondrop = e => { e.preventDefault(); uA.classList.remove('dragover'); handle(e.dataTransfer.files); };
 		cI.onchange = e => handle(e.target.files); gI.onchange = e => handle(e.target.files); vI.onchange = e => handle(e.target.files); sB.onclick = upload;
@@ -359,8 +426,7 @@
 			return (bytes / 1024 / 1024).toFixed(1) + ' MB';
 		}
 		async function handle(files) {
-			const rem = M - F.length;
-			const add = Array.from(files).slice(0, rem);
+			const add = Array.from(files);
 			for (const f of add) {
 				// Duplicate dosya kontrolü (isim + boyut ile)
 				const fileKey = `${f.name}_${f.size}`;
@@ -371,6 +437,17 @@
 				const isVideo = f.type.startsWith('video/');
 
 				if (!isImage && !isVideo) continue;
+
+				// Ayrı limit kontrolü
+				const counts = getCounts();
+				if (isImage && counts.images >= MAX_IMAGES) {
+					show(`Max ${MAX_IMAGES} images allowed`, 'error');
+					continue;
+				}
+				if (isVideo && counts.videos >= MAX_VIDEOS) {
+					show(`Max ${MAX_VIDEOS} videos allowed`, 'error');
+					continue;
+				}
 
 				// Dosya boyutu kontrolü
 				const sizeMB = f.size / (1024 * 1024);
@@ -403,7 +480,12 @@
 		}
 		function preview(f, i) { const r = new FileReader(); r.onload = e => { const d = document.createElement('div'); d.className = 'preview-item'; d.dataset.index = i; if (f.type.startsWith('video/')) { d.innerHTML = `<video src="${e.target.result}" muted style="width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:24px">🎬</span><button class="remove-btn" onclick="remove(${i})">×</button>`; } else { d.innerHTML = `<img src="${e.target.result}"><button class="remove-btn" onclick="remove(${i})">×</button>`; } pG.appendChild(d); }; r.readAsDataURL(f); }
 		function remove(i) { F.splice(i, 1); pG.innerHTML = ''; F.forEach((f, j) => preview(f, j)); ui(); }
-		function ui() { iC.textContent = `${F.length}/${M}`; sB.textContent = `Send (${F.length})`; F.length > 0 && !isUploading ? (sB.classList.remove('hidden'), sB.disabled = false) : (sB.classList.add('hidden'), sB.disabled = true); }
+		function ui() {
+			const counts = getCounts();
+			iC.textContent = `📷${counts.images}/${MAX_IMAGES} 🎬${counts.videos}/${MAX_VIDEOS}`;
+			sB.textContent = `Send (${F.length})`;
+			F.length > 0 && !isUploading && isSessionValid ? (sB.classList.remove('hidden'), sB.disabled = false) : (sB.classList.add('hidden'), sB.disabled = true);
+		}
 		async function upload() {
 			if (!F.length || isUploading) return;
 			isUploading = true;  // Upload kilidi
@@ -461,6 +543,10 @@
 			if (ok === F.length) {
 				show(`${ok} file(s) sent! ✓`, 'success');
 				sB.textContent = 'Done ✓';
+				// Session kontrolünü durdur - transfer tamamlandı
+				if (sessionCheckInterval) { clearInterval(sessionCheckInterval); sessionCheckInterval = null; }
+				sD.style.background = '#4caf50';  // Yeşil (başarılı)
+				sT.textContent = 'Completed';
 				setTimeout(() => {
 					F = [];
 					pG.innerHTML = '';

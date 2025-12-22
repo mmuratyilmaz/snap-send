@@ -535,15 +535,27 @@
 				// Session kontrolünü durdur - transfer tamamlandı
 				if (sessionCheckInterval) { clearInterval(sessionCheckInterval); sessionCheckInterval = null; }
 				sD.style.background = '#4caf50';  // Yeşil (başarılı)
-				sT.textContent = 'Completed';
+				sT.textContent = 'Done ✓';
+
+				// 3 saniye sonra session kapatıldı mesajı göster
+				setTimeout(() => {
+					sD.style.background = '#2196f3';  // Mavi (bilgi)
+					sT.textContent = 'Session closed';
+					show('Transfer complete! You can close this page.', 'success');
+					// Butonları devre dışı bırak
+					cB.disabled = true;
+					vB.disabled = true;
+					uA.style.pointerEvents = 'none';
+					uA.style.opacity = '0.5';
+				}, 3000);
+
 				setTimeout(() => {
 					F = [];
 					pG.innerHTML = '';
 					sB.classList.add('hidden');
-					msg.classList.add('hidden');
-					isUploading = false;  // Kilit aç
+					isUploading = false;
 					ui();
-				}, 3000);
+				}, 3500);
 			} else {
 				show(`${ok}/${F.length} sent`, 'error');
 				isUploading = false;  // Hata durumunda kilit aç

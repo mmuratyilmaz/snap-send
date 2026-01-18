@@ -1155,10 +1155,14 @@
 						renderMessage(message);
 						scrollToBottom();
 					}
+				} else {
+					// Mesaj gönderilemedi - kullanıcıya bildir
+					showError('Mesaj gönderilemedi. Lütfen tekrar deneyin.');
 				}
 
 			} catch (error) {
 				console.error('Send error:', error);
+				showError('Mesaj gönderilirken hata oluştu.');
 			} finally {
 				sendBtn.disabled = false;
 			}

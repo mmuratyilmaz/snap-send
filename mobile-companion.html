@@ -835,7 +835,16 @@
 				}
 
 				const data = await response.json();
-				const conversation = JSON.parse(atob(data.content));
+
+				// UTF-8 için doğru decode
+				const base64Content = data.content.replace(/\n/g, '');
+				const binaryString = atob(base64Content);
+				const bytes = new Uint8Array(binaryString.length);
+				for (let i = 0; i < binaryString.length; i++) {
+					bytes[i] = binaryString.charCodeAt(i);
+				}
+				const decodedText = new TextDecoder('utf-8').decode(bytes);
+				const conversation = JSON.parse(decodedText);
 
 				connectionStatus.style.display = 'none';
 				lastSyncSequence = conversation.lastSyncSequence || 0;
@@ -996,14 +1005,30 @@
 			sendBtn.disabled = true;
 
 			try {
+				// ÖNCE: Tüm attachment'ları yükle
+				const uploadedAttachments = [];
+				for (const att of pendingAttachments) {
+					const manifest = await uploadAttachment(att);
+					if (manifest) {
+						uploadedAttachments.push(manifest);
+					}
+				}
+
+				// SONRA: Mesajı attachment referansları ile birlikte gönder
 				messageSequence++;
 				const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
-				// Create message object
+				// Create message object with attachment references
 				const message = {
 					id: messageId,
 					type: 'text',
 					content: text,
+					attachments: uploadedAttachments.map(m => ({
+						id: m.id,
+						name: m.originalName,
+						type: m.mimeType,
+						fileName: m.fileName
+					})),
 					mode: sendMode,
 					timestamp: Date.now(),
 					sequence: messageSequence
@@ -1020,6 +1045,7 @@
 					// Clear input
 					messageInput.value = '';
 					messageInput.style.height = 'auto';
+					clearAttachments();
 
 					// Render locally if in send mode
 					if (sendMode === 'send') {
@@ -1027,12 +1053,6 @@
 						scrollToBottom();
 					}
 				}
-
-				// Handle attachments
-				for (const att of pendingAttachments) {
-					await uploadAttachment(att);
-				}
-				clearAttachments();
 
 			} catch (error) {
 				console.error('Send error:', error);

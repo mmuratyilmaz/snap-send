@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Jumper Chat - Mobile Companion</title>
+	<style>
+		/* ============================================
+		   Jumper Chat Mobile Companion Styles
+		   ============================================ */
+
+		:root {
+			--jumper-primary: #007acc;
+			--jumper-secondary: #2b3a50;
+			--jumper-accent: #0c7b93;
+			--jumper-orange: #f97316;
+			--surface-0: #1e1e1e;
+			--surface-1: #252525;
+			--surface-2: #2a2a2a;
+			--surface-card: #2d2d2d;
+			--surface-border: rgba(255, 255, 255, 0.12);
+			--text-primary: #e0e0e0;
+			--text-muted: #888888;
+			--success-color: #10b981;
+			--warning-color: #f59e0b;
+			--error-color: #ef4444;
+		}
+
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+			background: var(--surface-0);
+			color: var(--text-primary);
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+			font-size: 14px;
+			line-height: 1.5;
+		}
+
+		/* Header */
+		.header {
+			background: var(--surface-1);
+			padding: 12px 16px;
+			border-bottom: 1px solid var(--surface-border);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			position: sticky;
+			top: 0;
+			z-index: 100;
+		}
+
+		.header-brand {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.header-brand svg {
+			width: 24px;
+			height: 24px;
+		}
+
+		.header-title {
+			font-weight: 600;
+			font-size: 16px;
+		}
+
+		.header-status {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+			color: var(--text-muted);
+		}
+
+		.status-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--success-color);
+		}
+
+		.status-dot.disconnected {
+			background: var(--error-color);
+		}
+
+		/* Chat Container */
+		.chat-container {
+			flex: 1;
+			overflow-y: auto;
+			padding: 16px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+		}
+
+		/* Message Bubbles */
+		.message {
+			max-width: 85%;
+			animation: fadeIn 0.2s ease-out;
+		}
+
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+				transform: translateY(8px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.message.user {
+			align-self: flex-end;
+		}
+
+		.message.assistant {
+			align-self: flex-start;
+		}
+
+		.message-bubble {
+			padding: 10px 14px;
+			border-radius: 16px;
+		}
+
+		.message.user .message-bubble {
+			background: var(--surface-2);
+			border-bottom-right-radius: 4px;
+		}
+
+		.message.assistant .message-bubble {
+			background: transparent;
+			padding: 0;
+		}
+
+		/* NexMaker Narrative Styles */
+		.nexmaker-narrative {
+			line-height: 1.6;
+		}
+
+		.nexmaker-narrative p {
+			margin-bottom: 10px;
+		}
+
+		.nexmaker-narrative p:last-child {
+			margin-bottom: 0;
+		}
+
+		.nexmaker-narrative code {
+			background: var(--surface-1);
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-family: 'Fira Code', monospace;
+			font-size: 13px;
+		}
+
+		.nexmaker-narrative strong {
+			color: var(--jumper-orange);
+		}
+
+		/* NexMaker Cart Card */
+		.nexmaker-cart-card {
+			margin: 12px 0;
+			border: 1px solid var(--surface-border);
+			border-radius: 16px;
+			background: var(--surface-card);
+			overflow: hidden;
+		}
+
+		.nexmaker-cart-card summary {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 14px 16px;
+			cursor: pointer;
+			user-select: none;
+			background: rgba(0, 0, 0, 0.2);
+			list-style: none;
+		}
+
+		.nexmaker-cart-card summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.cart-summary-left {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+
+		.cart-summary-title {
+			font-weight: 600;
+			font-size: 14px;
+		}
+
+		.cart-summary-subtitle {
+			font-size: 12px;
+			color: var(--text-muted);
+		}
+
+		.cart-summary-right {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+			font-size: 13px;
+		}
+
+		.cart-summary-total {
+			font-weight: 600;
+		}
+
+		.nexmaker-chip {
+			padding: 3px 10px;
+			border-radius: 12px;
+			font-size: 11px;
+			font-weight: 500;
+		}
+
+		.nexmaker-chip.info {
+			background: var(--jumper-primary);
+			color: white;
+		}
+
+		.nexmaker-chip.warning {
+			background: var(--warning-color);
+			color: #000;
+		}
+
+		.nexmaker-chip.accent {
+			background: var(--jumper-orange);
+			color: white;
+		}
+
+		.cart-summary-chevron {
+			width: 10px;
+			height: 10px;
+			border-right: 2px solid currentColor;
+			border-bottom: 2px solid currentColor;
+			transform: rotate(45deg);
+			transition: transform 0.2s;
+			opacity: 0.6;
+		}
+
+		.nexmaker-cart-card[open] .cart-summary-chevron {
+			transform: rotate(-135deg);
+		}
+
+		.cart-body {
+			padding: 16px;
+			background: rgba(0, 0, 0, 0.1);
+			border-top: 1px solid var(--surface-border);
+		}
+
+		/* Product Grid */
+		.nexmaker-products-grid {
+			display: grid;
+			grid-template-columns: repeat(2, 1fr);
+			gap: 12px;
+		}
+
+		.nexmaker-cart-product {
+			background: var(--surface-card);
+			border: 1px solid var(--surface-border);
+			border-radius: 12px;
+			overflow: hidden;
+		}
+
+		.cart-product-media {
+			aspect-ratio: 4/3;
+			overflow: hidden;
+			background: var(--surface-1);
+		}
+
+		.cart-product-media img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.cart-product-body {
+			padding: 10px;
+		}
+
+		.cart-product-name {
+			font-size: 12px;
+			font-weight: 500;
+			margin-bottom: 6px;
+			display: -webkit-box;
+			-webkit-line-clamp: 2;
+			-webkit-box-orient: vertical;
+			overflow: hidden;
+		}
+
+		.cart-product-pricing {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+		}
+
+		.nexmaker-price-old {
+			text-decoration: line-through;
+			color: var(--text-muted);
+		}
+
+		.nexmaker-price-new {
+			color: var(--success-color);
+			font-weight: 600;
+		}
+
+		.nexmaker-price-tag {
+			background: var(--jumper-orange);
+			color: white;
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-size: 10px;
+			font-weight: 600;
+		}
+
+		.nexmaker-qty {
+			color: var(--text-muted);
+		}
+
+		/* Step Indicators */
+		.step-indicator {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 12px;
+			background: var(--surface-1);
+			border-radius: 8px;
+			margin: 8px 0;
+		}
+
+		.step-indicator.success {
+			border-left: 3px solid var(--success-color);
+		}
+
+		.step-indicator.pending {
+			border-left: 3px solid var(--warning-color);
+		}
+
+		/* User Attachment Preview */
+		.message-attachment {
+			margin-top: 8px;
+			border-radius: 12px;
+			overflow: hidden;
+			max-width: 200px;
+		}
+
+		.message-attachment img,
+		.message-attachment video {
+			width: 100%;
+			display: block;
+		}
+
+		/* Input Area */
+		.input-area {
+			background: var(--surface-1);
+			border-top: 1px solid var(--surface-border);
+			padding: 12px 16px;
+			padding-bottom: max(12px, env(safe-area-inset-bottom));
+		}
+
+		.attachment-preview-bar {
+			display: flex;
+			gap: 8px;
+			margin-bottom: 10px;
+			overflow-x: auto;
+			padding-bottom: 4px;
+		}
+
+		.attachment-preview-bar:empty {
+			display: none;
+		}
+
+		.attachment-preview {
+			position: relative;
+			width: 60px;
+			height: 60px;
+			border-radius: 8px;
+			overflow: hidden;
+			flex-shrink: 0;
+		}
+
+		.attachment-preview img,
+		.attachment-preview video {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.attachment-remove {
+			position: absolute;
+			top: 4px;
+			right: 4px;
+			width: 20px;
+			height: 20px;
+			background: rgba(0, 0, 0, 0.7);
+			border: none;
+			border-radius: 50%;
+			color: white;
+			font-size: 14px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.input-row {
+			display: flex;
+			align-items: flex-end;
+			gap: 10px;
+		}
+
+		.input-actions {
+			display: flex;
+			gap: 6px;
+		}
+
+		.action-btn {
+			width: 40px;
+			height: 40px;
+			border: none;
+			border-radius: 50%;
+			background: var(--surface-2);
+			color: var(--text-primary);
+			font-size: 18px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: background 0.2s;
+		}
+
+		.action-btn:hover {
+			background: var(--surface-card);
+		}
+
+		.message-input-wrapper {
+			flex: 1;
+			background: var(--surface-2);
+			border-radius: 20px;
+			padding: 8px 16px;
+			display: flex;
+			align-items: flex-end;
+			gap: 8px;
+		}
+
+		.message-input {
+			flex: 1;
+			background: transparent;
+			border: none;
+			color: var(--text-primary);
+			font-size: 14px;
+			resize: none;
+			max-height: 120px;
+			min-height: 24px;
+			line-height: 1.5;
+		}
+
+		.message-input:focus {
+			outline: none;
+		}
+
+		.message-input::placeholder {
+			color: var(--text-muted);
+		}
+
+		.send-btn {
+			width: 40px;
+			height: 40px;
+			border: none;
+			border-radius: 50%;
+			background: var(--jumper-orange);
+			color: white;
+			font-size: 18px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: transform 0.15s, background 0.2s;
+			flex-shrink: 0;
+		}
+
+		.send-btn:hover {
+			background: #ea580c;
+		}
+
+		.send-btn:active {
+			transform: scale(0.95);
+		}
+
+		.send-btn:disabled {
+			background: var(--surface-2);
+			cursor: not-allowed;
+		}
+
+		/* Mode Toggle */
+		.mode-toggle {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 10px;
+			font-size: 12px;
+			color: var(--text-muted);
+		}
+
+		.mode-toggle-switch {
+			display: flex;
+			background: var(--surface-2);
+			border-radius: 20px;
+			padding: 2px;
+		}
+
+		.mode-option {
+			padding: 6px 12px;
+			border-radius: 18px;
+			border: none;
+			background: transparent;
+			color: var(--text-muted);
+			font-size: 12px;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+
+		.mode-option.active {
+			background: var(--jumper-primary);
+			color: white;
+		}
+
+		/* Loading States */
+		.loading-dots {
+			display: flex;
+			gap: 4px;
+			padding: 10px;
+		}
+
+		.loading-dots span {
+			width: 8px;
+			height: 8px;
+			background: var(--text-muted);
+			border-radius: 50%;
+			animation: bounce 1.4s infinite ease-in-out both;
+		}
+
+		.loading-dots span:nth-child(1) {
+			animation-delay: -0.32s;
+		}
+
+		.loading-dots span:nth-child(2) {
+			animation-delay: -0.16s;
+		}
+
+		@keyframes bounce {
+
+			0%,
+			80%,
+			100% {
+				transform: scale(0);
+			}
+
+			40% {
+				transform: scale(1);
+			}
+		}
+
+		/* Connection Status */
+		.connection-status {
+			text-align: center;
+			padding: 40px 20px;
+			color: var(--text-muted);
+		}
+
+		.connection-status h2 {
+			margin-bottom: 10px;
+		}
+
+		/* Empty State */
+		.empty-state {
+			text-align: center;
+			padding: 40px 20px;
+			color: var(--text-muted);
+		}
+
+		.empty-state-icon {
+			font-size: 48px;
+			margin-bottom: 16px;
+		}
+
+		/* File Input (hidden) */
+		.hidden-input {
+			display: none;
+		}
+
+		/* Scrollbar */
+		::-webkit-scrollbar {
+			width: 4px;
+		}
+
+		::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: var(--surface-border);
+			border-radius: 2px;
+		}
+	</style>
+</head>
+
+<body>
+	<!-- Header -->
+	<header class="header">
+		<div class="header-brand">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+				<circle cx="12" cy="12" r="10" />
+				<path d="M12 6v6l4 2" />
+			</svg>
+			<span class="header-title">Jumper Chat</span>
+		</div>
+		<div class="header-status">
+			<span class="status-dot" id="status-dot"></span>
+			<span id="status-text">Bağlanıyor...</span>
+		</div>
+	</header>
+
+	<!-- Chat Container -->
+	<div class="chat-container" id="chat-container">
+		<div class="connection-status" id="connection-status">
+			<h2>Bağlantı Bekleniyor</h2>
+			<p>Jumper Hub ile bağlantı kuruluyor...</p>
+		</div>
+	</div>
+
+	<!-- Input Area -->
+	<div class="input-area">
+		<!-- Mode Toggle -->
+		<div class="mode-toggle">
+			<span>Medya modu:</span>
+			<div class="mode-toggle-switch">
+				<button class="mode-option active" data-mode="add">📎 Ekle</button>
+				<button class="mode-option" data-mode="send">🚀 Gönder</button>
+			</div>
+		</div>
+
+		<!-- Attachment Preview Bar -->
+		<div class="attachment-preview-bar" id="attachment-preview-bar"></div>
+
+		<!-- Input Row -->
+		<div class="input-row">
+			<div class="input-actions">
+				<button class="action-btn" id="camera-btn" title="Kamera">📷</button>
+				<button class="action-btn" id="gallery-btn" title="Galeri">🖼️</button>
+				<button class="action-btn" id="video-btn" title="Video">🎥</button>
+			</div>
+			<div class="message-input-wrapper">
+				<textarea class="message-input" id="message-input" placeholder="Mesajınızı yazın..."
+					rows="1"></textarea>
+			</div>
+			<button class="send-btn" id="send-btn" disabled>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+					<path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<!-- Hidden File Inputs -->
+	<input type="file" class="hidden-input" id="camera-input" accept="image/*" capture="environment">
+	<input type="file" class="hidden-input" id="gallery-input" accept="image/*" multiple>
+	<input type="file" class="hidden-input" id="video-input" accept="video/*" capture="environment">
+
+	<script>
+		// ============================================
+		// Mobile Companion JavaScript
+		// ============================================
+
+		// URL Parameters
+		const urlParams = new URLSearchParams(window.location.search);
+		const SESSION_ID = urlParams.get('s');
+		const SESSION_TOKEN = urlParams.get('t');
+		const ENCRYPTED_KEY = urlParams.get('k');
+
+		// GitHub Config
+		const GITHUB_OWNER = 'mmuratyilmaz';
+		const GITHUB_REPO = 'jumper-media';
+		const GITHUB_BRANCH = 'main';
+
+		// XOR Decryption Key
+		const EK = 'snap-send-2024-secure-key';
+
+		// State
+		let githubToken = null;
+		let isConnected = false;
+		let sendMode = 'add';  // 'add' or 'send'
+		let pendingAttachments = [];
+		let lastSyncSequence = 0;
+		let messageSequence = 0;
+		let heartbeatInterval = null;
+
+		// DOM Elements
+		const chatContainer = document.getElementById('chat-container');
+		const connectionStatus = document.getElementById('connection-status');
+		const statusDot = document.getElementById('status-dot');
+		const statusText = document.getElementById('status-text');
+		const messageInput = document.getElementById('message-input');
+		const sendBtn = document.getElementById('send-btn');
+		const attachmentPreviewBar = document.getElementById('attachment-preview-bar');
+		const cameraInput = document.getElementById('camera-input');
+		const galleryInput = document.getElementById('gallery-input');
+		const videoInput = document.getElementById('video-input');
+
+		// ============================================
+		// XOR Decryption
+		// ============================================
+		function xorDecrypt(enc) {
+			try {
+				let b64 = enc.replace(/-/g, '+').replace(/_/g, '/');
+				while (b64.length % 4) b64 += '=';
+				const bytes = atob(b64);
+				let result = '';
+				for (let i = 0; i < bytes.length; i++) {
+					result += String.fromCharCode(bytes.charCodeAt(i) ^ EK.charCodeAt(i % EK.length));
+				}
+				return result;
+			} catch (e) {
+				return null;
+			}
+		}
+
+		// ============================================
+		// GitHub API Functions
+		// ============================================
+		async function fetchFromGitHub(path, options = {}) {
+			const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+			const headers = {
+				'Authorization': `token ${githubToken}`,
+				'Accept': 'application/vnd.github.v3+json',
+				...options.headers
+			};
+			return fetch(url, { ...options, headers });
+		}
+
+		async function uploadToGitHub(path, content, message) {
+			const encodedContent = btoa(unescape(encodeURIComponent(
+				typeof content === 'string' ? content : JSON.stringify(content)
+			)));
+
+			const response = await fetchFromGitHub(path, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					message,
+					content: encodedContent,
+					branch: GITHUB_BRANCH
+				})
+			});
+
+			return response.ok;
+		}
+
+		// ============================================
+		// Session Management
+		// ============================================
+		async function initSession() {
+			if (!SESSION_ID || !SESSION_TOKEN || !ENCRYPTED_KEY) {
+				showError('Geçersiz bağlantı parametreleri');
+				return;
+			}
+
+			// Decrypt GitHub token
+			githubToken = xorDecrypt(ENCRYPTED_KEY);
+			if (!githubToken) {
+				showError('Token çözülemiyor');
+				return;
+			}
+
+			// Verify session
+			try {
+				const response = await fetchFromGitHub(`sessions/${SESSION_ID}/.session`);
+				if (!response.ok) {
+					throw new Error('Session bulunamadı');
+				}
+
+				const sessionData = await response.json();
+				const sessionContent = JSON.parse(atob(sessionData.content));
+
+				if (sessionContent.token !== SESSION_TOKEN) {
+					throw new Error('Geçersiz token');
+				}
+
+				if (sessionContent.expiresAt && Date.now() > sessionContent.expiresAt) {
+					throw new Error('Session süresi dolmuş');
+				}
+
+				// Connected!
+				setConnected(true);
+
+				// Load conversation
+				await loadConversation();
+
+				// Start heartbeat
+				startHeartbeat();
+
+				// Start polling for new responses
+				startPolling();
+
+			} catch (error) {
+				showError(error.message);
+			}
+		}
+
+		async function loadConversation() {
+			try {
+				const response = await fetchFromGitHub(`sessions/${SESSION_ID}/conversation.json`);
+				if (!response.ok) {
+					// No conversation yet
+					connectionStatus.style.display = 'none';
+					return;
+				}
+
+				const data = await response.json();
+				const conversation = JSON.parse(atob(data.content));
+
+				connectionStatus.style.display = 'none';
+				lastSyncSequence = conversation.lastSyncSequence || 0;
+				messageSequence = lastSyncSequence;
+
+				// Render messages
+				conversation.messages.forEach(msg => {
+					renderMessage(msg);
+				});
+
+				scrollToBottom();
+			} catch (error) {
+				console.error('Conversation load error:', error);
+			}
+		}
+
+		function startHeartbeat() {
+			heartbeatInterval = setInterval(async () => {
+				try {
+					await uploadToGitHub(
+						`sessions/${SESSION_ID}/messages/heartbeat.json`,
+						{ timestamp: Date.now() },
+						'Heartbeat'
+					);
+				} catch (e) {
+					console.warn('Heartbeat failed:', e);
+				}
+			}, 30000);
+		}
+
+		function startPolling() {
+			setInterval(async () => {
+				await checkForNewResponses();
+			}, 3000);
+		}
+
+		async function checkForNewResponses() {
+			try {
+				const response = await fetchFromGitHub(`sessions/${SESSION_ID}/responses`);
+				if (!response.ok) return;
+
+				const files = await response.json();
+				for (const file of files) {
+					if (!file.name.endsWith('.json')) continue;
+
+					const seqMatch = file.name.match(/resp-(\d+)\.json/);
+					if (!seqMatch) continue;
+
+					const seq = parseInt(seqMatch[1], 10);
+					if (seq <= lastSyncSequence) continue;
+
+					// Download and render new response
+					const respData = await fetch(file.download_url);
+					if (!respData.ok) continue;
+
+					const message = await respData.json();
+					renderMessage(message);
+					lastSyncSequence = Math.max(lastSyncSequence, seq);
+					scrollToBottom();
+				}
+			} catch (e) {
+				console.warn('Polling error:', e);
+			}
+		}
+
+		// ============================================
+		// Message Rendering
+		// ============================================
+		function renderMessage(msg) {
+			const div = document.createElement('div');
+			div.className = `message ${msg.role}`;
+
+			const bubble = document.createElement('div');
+			bubble.className = 'message-bubble';
+
+			if (msg.role === 'user') {
+				bubble.textContent = msg.content;
+			} else {
+				// Assistant message - render HTML
+				bubble.innerHTML = msg.content;
+			}
+
+			div.appendChild(bubble);
+			chatContainer.appendChild(div);
+		}
+
+		function scrollToBottom() {
+			chatContainer.scrollTop = chatContainer.scrollHeight;
+		}
+
+		// ============================================
+		// Message Sending
+		// ============================================
+		async function sendMessage() {
+			const text = messageInput.value.trim();
+			if (!text && pendingAttachments.length === 0) return;
+
+			// Disable send button
+			sendBtn.disabled = true;
+
+			try {
+				messageSequence++;
+				const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+				// Create message object
+				const message = {
+					id: messageId,
+					type: 'text',
+					content: text,
+					mode: sendMode,
+					timestamp: Date.now(),
+					sequence: messageSequence
+				};
+
+				// Upload message
+				const success = await uploadToGitHub(
+					`sessions/${SESSION_ID}/messages/${messageId}.json`,
+					message,
+					`Mobile message ${messageSequence}`
+				);
+
+				if (success) {
+					// Clear input
+					messageInput.value = '';
+					messageInput.style.height = 'auto';
+
+					// Render locally if in send mode
+					if (sendMode === 'send') {
+						renderMessage({ role: 'user', content: text });
+						scrollToBottom();
+					}
+				}
+
+				// Handle attachments
+				for (const att of pendingAttachments) {
+					await uploadAttachment(att);
+				}
+				clearAttachments();
+
+			} catch (error) {
+				console.error('Send error:', error);
+			} finally {
+				sendBtn.disabled = false;
+			}
+		}
+
+		async function uploadAttachment(attachment) {
+			// TODO: Implement file upload
+			console.log('Uploading attachment:', attachment.name);
+		}
+
+		// ============================================
+		// Attachment Handling
+		// ============================================
+		function handleFileSelect(files) {
+			for (const file of files) {
+				if (pendingAttachments.length >= 5) break;
+
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					const att = {
+						id: `att-${Date.now()}`,
+						name: file.name,
+						type: file.type,
+						data: e.target.result,
+						file: file
+					};
+					pendingAttachments.push(att);
+					renderAttachmentPreview(att);
+					updateSendButton();
+				};
+				reader.readAsDataURL(file);
+			}
+		}
+
+		function renderAttachmentPreview(att) {
+			const div = document.createElement('div');
+			div.className = 'attachment-preview';
+			div.id = att.id;
+
+			if (att.type.startsWith('video/')) {
+				const video = document.createElement('video');
+				video.src = att.data;
+				div.appendChild(video);
+			} else {
+				const img = document.createElement('img');
+				img.src = att.data;
+				div.appendChild(img);
+			}
+
+			const removeBtn = document.createElement('button');
+			removeBtn.className = 'attachment-remove';
+			removeBtn.innerHTML = '×';
+			removeBtn.onclick = () => removeAttachment(att.id);
+			div.appendChild(removeBtn);
+
+			attachmentPreviewBar.appendChild(div);
+		}
+
+		function removeAttachment(id) {
+			pendingAttachments = pendingAttachments.filter(a => a.id !== id);
+			const el = document.getElementById(id);
+			if (el) el.remove();
+			updateSendButton();
+		}
+
+		function clearAttachments() {
+			pendingAttachments = [];
+			attachmentPreviewBar.innerHTML = '';
+			updateSendButton();
+		}
+
+		// ============================================
+		// UI Updates
+		// ============================================
+		function setConnected(connected) {
+			isConnected = connected;
+			statusDot.classList.toggle('disconnected', !connected);
+			statusText.textContent = connected ? 'Bağlı' : 'Bağlantı kesildi';
+		}
+
+		function showError(message) {
+			connectionStatus.innerHTML = `
+				<h2>Bağlantı Hatası</h2>
+				<p>${message}</p>
+			`;
+			setConnected(false);
+		}
+
+		function updateSendButton() {
+			const hasText = messageInput.value.trim().length > 0;
+			const hasAttachments = pendingAttachments.length > 0;
+			sendBtn.disabled = !isConnected || (!hasText && !hasAttachments);
+		}
+
+		function autoResizeInput() {
+			messageInput.style.height = 'auto';
+			messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+		}
+
+		// ============================================
+		// Event Listeners
+		// ============================================
+		messageInput.addEventListener('input', () => {
+			autoResizeInput();
+			updateSendButton();
+		});
+
+		sendBtn.addEventListener('click', sendMessage);
+
+		// Mode toggle
+		document.querySelectorAll('.mode-option').forEach(btn => {
+			btn.addEventListener('click', () => {
+				document.querySelectorAll('.mode-option').forEach(b => b.classList.remove('active'));
+				btn.classList.add('active');
+				sendMode = btn.dataset.mode;
+			});
+		});
+
+		// File inputs
+		document.getElementById('camera-btn').addEventListener('click', () => cameraInput.click());
+		document.getElementById('gallery-btn').addEventListener('click', () => galleryInput.click());
+		document.getElementById('video-btn').addEventListener('click', () => videoInput.click());
+
+		cameraInput.addEventListener('change', (e) => handleFileSelect(e.target.files));
+		galleryInput.addEventListener('change', (e) => handleFileSelect(e.target.files));
+		videoInput.addEventListener('change', (e) => handleFileSelect(e.target.files));
+
+		// ============================================
+		// Initialize
+		// ============================================
+		initSession();
+	</script>
+</body>
+
+</html>

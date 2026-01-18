@@ -853,13 +853,44 @@
 		}
 
 		function startHeartbeat() {
+			let heartbeatSha = null;  // Heartbeat dosyasının SHA değeri
+
 			heartbeatInterval = setInterval(async () => {
 				try {
-					await uploadToGitHub(
-						`sessions/${SESSION_ID}/messages/heartbeat.json`,
-						{ timestamp: Date.now() },
-						'Heartbeat'
-					);
+					const heartbeatPath = `sessions/${SESSION_ID}/messages/heartbeat.json`;
+					const heartbeatContent = JSON.stringify({ timestamp: Date.now() });
+					const encodedContent = btoa(unescape(encodeURIComponent(heartbeatContent)));
+
+					// Eğer SHA varsa güncelleme, yoksa yeni oluşturma
+					const body = {
+						message: 'Heartbeat',
+						content: encodedContent,
+						branch: GITHUB_BRANCH
+					};
+
+					// Mevcut SHA varsa ekle
+					if (heartbeatSha) {
+						body.sha = heartbeatSha;
+					}
+
+					const response = await fetchFromGitHub(heartbeatPath, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(body)
+					});
+
+					if (response.ok) {
+						// Yeni SHA değerini kaydet
+						const result = await response.json();
+						heartbeatSha = result.content?.sha;
+					} else if (response.status === 422) {
+						// SHA uyuşmazlığı - mevcut SHA'yı al ve tekrar dene
+						const getResp = await fetchFromGitHub(heartbeatPath);
+						if (getResp.ok) {
+							const data = await getResp.json();
+							heartbeatSha = data.sha;
+						}
+					}
 				} catch (e) {
 					console.warn('Heartbeat failed:', e);
 				}

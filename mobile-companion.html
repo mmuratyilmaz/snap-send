@@ -973,14 +973,73 @@
 		// Message Rendering
 		// ============================================
 		function renderMessage(msg) {
+			// Duplikasyon kontrolü - aynı mesaj ID'si zaten render edilmişse atla
+			if (msg.id && document.querySelector(`[data-message-id="${msg.id}"]`)) {
+				console.log('Message already rendered, skipping:', msg.id);
+				return;
+			}
+
 			const div = document.createElement('div');
 			div.className = `message ${msg.role}`;
+			if (msg.id) {
+				div.setAttribute('data-message-id', msg.id);
+			}
 
 			const bubble = document.createElement('div');
 			bubble.className = 'message-bubble';
 
 			if (msg.role === 'user') {
-				bubble.textContent = msg.content;
+				// Attachments varsa önce onları göster
+				if (msg.attachments && msg.attachments.length > 0) {
+					const attachmentsDiv = document.createElement('div');
+					attachmentsDiv.className = 'message-attachments';
+					attachmentsDiv.style.cssText = 'display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;';
+
+					for (const att of msg.attachments) {
+						const attDiv = document.createElement('div');
+						attDiv.className = 'attachment-preview';
+						attDiv.style.cssText = 'position: relative; cursor: pointer;';
+
+						if (att.type && att.type.startsWith('video/')) {
+							// Video ikonu
+							attDiv.innerHTML = `
+								<div style="width: 60px; height: 60px; background: rgba(0,0,0,0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+									<svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+										<path d="M8 5v14l11-7z"/>
+									</svg>
+								</div>
+								<span style="font-size: 10px; display: block; text-align: center; margin-top: 2px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${att.name || 'Video'}</span>
+							`;
+						} else if (att.type && att.type.startsWith('image/')) {
+							// Görsel thumbnail
+							const img = document.createElement('img');
+							img.src = att.data || att.downloadUrl || '';
+							img.alt = att.name || 'Image';
+							img.style.cssText = 'width: 60px; height: 60px; object-fit: cover; border-radius: 8px;';
+							img.onclick = () => showLightbox(img.src, att.name);
+							attDiv.appendChild(img);
+						} else {
+							// Diğer dosya türleri
+							attDiv.innerHTML = `
+								<div style="width: 60px; height: 60px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+									<svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+									</svg>
+								</div>
+								<span style="font-size: 10px; display: block; text-align: center; margin-top: 2px; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${att.name || 'File'}</span>
+							`;
+						}
+						attachmentsDiv.appendChild(attDiv);
+					}
+					bubble.appendChild(attachmentsDiv);
+				}
+
+				// Metin içeriği
+				if (msg.content) {
+					const textSpan = document.createElement('span');
+					textSpan.textContent = msg.content;
+					bubble.appendChild(textSpan);
+				}
 			} else {
 				// Assistant message - render HTML
 				bubble.innerHTML = msg.content;
@@ -992,6 +1051,26 @@
 
 		function scrollToBottom() {
 			chatContainer.scrollTop = chatContainer.scrollHeight;
+		}
+
+		// Lightbox - görseli büyük görüntülemek için
+		function showLightbox(src, alt) {
+			const overlay = document.createElement('div');
+			overlay.style.cssText = `
+				position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+				background: rgba(0,0,0,0.9); z-index: 10000;
+				display: flex; align-items: center; justify-content: center;
+				cursor: pointer;
+			`;
+
+			const img = document.createElement('img');
+			img.src = src;
+			img.alt = alt || 'Image';
+			img.style.cssText = 'max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px;';
+
+			overlay.appendChild(img);
+			overlay.onclick = () => overlay.remove();
+			document.body.appendChild(overlay);
 		}
 
 		// ============================================
@@ -1010,6 +1089,8 @@
 				for (const att of pendingAttachments) {
 					const manifest = await uploadAttachment(att);
 					if (manifest) {
+						// Local render için data'yı da sakla
+						manifest.localData = att.data;
 						uploadedAttachments.push(manifest);
 					}
 				}
@@ -1022,13 +1103,15 @@
 				const message = {
 					id: messageId,
 					type: 'text',
+					role: 'user', // renderMessage için gerekli
 					content: text,
 					attachments: uploadedAttachments.map(m => ({
 						id: m.id,
 						name: m.originalName,
 						type: m.mimeType,
 						fileName: m.fileName,
-						downloadUrl: m.downloadUrl
+						downloadUrl: m.downloadUrl,
+						data: m.localData // local render için görsel verisi
 					})),
 					mode: sendMode,
 					timestamp: Date.now(),
@@ -1048,9 +1131,9 @@
 					messageInput.style.height = 'auto';
 					clearAttachments();
 
-					// Render locally if in send mode
+					// Render locally if in send mode - tam mesaj objesi ile render et
 					if (sendMode === 'send') {
-						renderMessage({ role: 'user', content: text });
+						renderMessage(message);
 						scrollToBottom();
 					}
 				}

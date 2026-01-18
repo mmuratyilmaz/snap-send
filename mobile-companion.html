@@ -918,14 +918,42 @@
 					const seq = parseInt(seqMatch[1], 10);
 					if (seq <= lastSyncSequence) continue;
 
-					// Download and render new response
-					const respData = await fetch(file.download_url);
-					if (!respData.ok) continue;
+					// UTF-8 encoding sorununu düzeltmek için GitHub API'den base64 content'i al
+					try {
+						// Dosyanın detaylarını al (base64 encoded content içerir)
+						const fileDetailResp = await fetchFromGitHub(`sessions/${SESSION_ID}/responses/${file.name}`);
+						if (!fileDetailResp.ok) continue;
 
-					const message = await respData.json();
-					renderMessage(message);
-					lastSyncSequence = Math.max(lastSyncSequence, seq);
-					scrollToBottom();
+						const fileDetail = await fileDetailResp.json();
+
+						// Base64'ten UTF-8'e düzgün decode et
+						const base64Content = fileDetail.content.replace(/\n/g, '');
+						const binaryString = atob(base64Content);
+						const bytes = new Uint8Array(binaryString.length);
+						for (let i = 0; i < binaryString.length; i++) {
+							bytes[i] = binaryString.charCodeAt(i);
+						}
+						const decodedText = new TextDecoder('utf-8').decode(bytes);
+						const message = JSON.parse(decodedText);
+
+						renderMessage(message);
+						lastSyncSequence = Math.max(lastSyncSequence, seq);
+						scrollToBottom();
+					} catch (decodeError) {
+						console.warn('Message decode error:', decodeError);
+						// Fallback: eski yöntemle dene
+						try {
+							const respData = await fetch(file.download_url);
+							if (respData.ok) {
+								const message = await respData.json();
+								renderMessage(message);
+								lastSyncSequence = Math.max(lastSyncSequence, seq);
+								scrollToBottom();
+							}
+						} catch (fallbackError) {
+							console.warn('Fallback also failed:', fallbackError);
+						}
+					}
 				}
 			} catch (e) {
 				console.warn('Polling error:', e);
@@ -1014,8 +1042,73 @@
 		}
 
 		async function uploadAttachment(attachment) {
-			// TODO: Implement file upload
 			console.log('Uploading attachment:', attachment.name);
+
+			try {
+				const fileId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+				const extension = attachment.name.split('.').pop() || 'bin';
+				const fileName = `${fileId}.${extension}`;
+				const filePath = `sessions/${SESSION_ID}/files/${fileName}`;
+
+				// Base64 data'dan sadece veri kısmını al (data:image/png;base64,XXX formatından)
+				const base64Data = attachment.data.split(',')[1];
+
+				if (!base64Data) {
+					console.error('Invalid attachment data format');
+					return null;
+				}
+
+				// GitHub'a dosyayı yükle
+				const uploadResponse = await fetchFromGitHub(filePath, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						message: `Upload file: ${attachment.name}`,
+						content: base64Data,
+						branch: GITHUB_BRANCH
+					})
+				});
+
+				if (!uploadResponse.ok) {
+					const errorText = await uploadResponse.text();
+					console.error('File upload failed:', uploadResponse.status, errorText);
+					return null;
+				}
+
+				const uploadResult = await uploadResponse.json();
+				console.log('File uploaded successfully:', fileName);
+
+				// Dosya manifest'i oluştur - Jumper Chat bu dosyayı okuyarak görseli alacak
+				const manifest = {
+					id: fileId,
+					type: 'file',
+					originalName: attachment.name,
+					fileName: fileName,
+					mimeType: attachment.type,
+					size: attachment.file ? attachment.file.size : 0,
+					mode: sendMode,
+					timestamp: Date.now(),
+					downloadUrl: uploadResult.content?.download_url || null,
+					sequence: messageSequence
+				};
+
+				const manifestSuccess = await uploadToGitHub(
+					`sessions/${SESSION_ID}/messages/${fileId}-manifest.json`,
+					manifest,
+					`File manifest: ${attachment.name}`
+				);
+
+				if (!manifestSuccess) {
+					console.error('Manifest upload failed');
+					return null;
+				}
+
+				console.log('Manifest uploaded:', manifest);
+				return manifest;
+			} catch (error) {
+				console.error('uploadAttachment error:', error);
+				return null;
+			}
 		}
 
 		// ============================================

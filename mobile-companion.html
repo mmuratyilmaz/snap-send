@@ -771,6 +771,12 @@
 				})
 			});
 
+			// 401 Unauthorized - Token expire olmuş
+			if (response.status === 401) {
+				showError('Oturum süresi dolmuş. Lütfen sayfayı yenileyip QR kodu tekrar okutun.');
+				return false;
+			}
+
 			return response.ok;
 		}
 
@@ -814,8 +820,8 @@
 				// Load conversation
 				await loadConversation();
 
-				// Start heartbeat
-				startHeartbeat();
+				// Start heartbeat (async - SHA'yı önceden alır)
+				await startHeartbeat();
 
 				// Start polling for new responses
 				startPolling();
@@ -861,12 +867,24 @@
 			}
 		}
 
-		function startHeartbeat() {
+		async function startHeartbeat() {
 			let heartbeatSha = null;  // Heartbeat dosyasının SHA değeri
+			const heartbeatPath = `sessions/${SESSION_ID}/messages/heartbeat.json`;
+
+			// Başlangıçta mevcut heartbeat.json'ın SHA'sını al (varsa)
+			try {
+				const initResp = await fetchFromGitHub(heartbeatPath);
+				if (initResp.ok) {
+					const data = await initResp.json();
+					heartbeatSha = data.sha;
+					console.log('Heartbeat SHA initialized:', heartbeatSha);
+				}
+			} catch (e) {
+				// İlk defa oluşturulacak, sorun değil
+			}
 
 			heartbeatInterval = setInterval(async () => {
 				try {
-					const heartbeatPath = `sessions/${SESSION_ID}/messages/heartbeat.json`;
 					const heartbeatContent = JSON.stringify({ timestamp: Date.now() });
 					const encodedContent = btoa(unescape(encodeURIComponent(heartbeatContent)));
 
@@ -892,8 +910,9 @@
 						// Yeni SHA değerini kaydet
 						const result = await response.json();
 						heartbeatSha = result.content?.sha;
-					} else if (response.status === 422) {
-						// SHA uyuşmazlığı - mevcut SHA'yı al ve tekrar dene
+					} else if (response.status === 422 || response.status === 409) {
+						// SHA uyuşmazlığı veya Conflict - mevcut SHA'yı al ve tekrar dene
+						console.log('Heartbeat SHA conflict, refreshing...');
 						const getResp = await fetchFromGitHub(heartbeatPath);
 						if (getResp.ok) {
 							const data = await getResp.json();
@@ -1182,7 +1201,8 @@
 				const uploadResult = await uploadResponse.json();
 				console.log('File uploaded successfully:', fileName);
 
-				// Dosya manifest'i oluştur - Jumper Chat bu dosyayı okuyarak görseli alacak
+				// Dosya manifest objesi oluştur - text mesajının attachments dizisine eklenecek
+				// NOT: Artık ayrı manifest dosyası yüklemiyoruz, text mesajındaki attachments YETERLİ!
 				const manifest = {
 					id: fileId,
 					type: 'file',
@@ -1196,18 +1216,8 @@
 					sequence: messageSequence
 				};
 
-				const manifestSuccess = await uploadToGitHub(
-					`sessions/${SESSION_ID}/messages/${fileId}-manifest.json`,
-					manifest,
-					`File manifest: ${attachment.name}`
-				);
-
-				if (!manifestSuccess) {
-					console.error('Manifest upload failed');
-					return null;
-				}
-
-				console.log('Manifest uploaded:', manifest);
+				// Manifest artık ayrı dosya olarak yüklenmiyor - text attachments ile gidecek
+				console.log('File uploaded successfully, manifest:', manifest);
 				return manifest;
 			} catch (error) {
 				console.error('uploadAttachment error:', error);

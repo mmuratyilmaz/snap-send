@@ -459,6 +459,7 @@
 			display: flex;
 			align-items: flex-end;
 			gap: 8px;
+			min-width: 0;
 		}
 
 		.message-input {
@@ -471,6 +472,7 @@
 			max-height: 120px;
 			min-height: 24px;
 			line-height: 1.5;
+			width: 100%;
 		}
 
 		.message-input:focus {
@@ -514,10 +516,27 @@
 		.mode-toggle {
 			display: flex;
 			align-items: center;
-			gap: 8px;
+			justify-content: space-between;
+			flex-wrap: wrap;
+			gap: 8px 12px;
 			margin-bottom: 10px;
 			font-size: 12px;
 			color: var(--text-muted);
+		}
+
+		.mode-toggle-left {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			flex: 1 1 auto;
+			min-width: 0;
+		}
+
+		.mode-toggle-actions {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			flex-shrink: 0;
 		}
 
 		.mode-toggle-switch {
@@ -651,10 +670,17 @@
 	<div class="input-area">
 		<!-- Mode Toggle -->
 		<div class="mode-toggle">
+			<div class="mode-toggle-left">
 			<span>Medya modu:</span>
 			<div class="mode-toggle-switch">
 				<button class="mode-option active" data-mode="add">📎 Ekle</button>
 				<button class="mode-option" data-mode="send">🚀 Gönder</button>
+			</div>
+			</div>
+			<div class="mode-toggle-actions">
+				<button class="action-btn" id="gallery-btn" title="Galeri">🖼️</button>
+				<button class="action-btn" id="camera-btn" title="Kamera">📷</button>
+				<button class="action-btn" id="video-btn" title="Video">🎥</button>
 			</div>
 		</div>
 
@@ -663,11 +689,6 @@
 
 		<!-- Input Row -->
 		<div class="input-row">
-			<div class="input-actions">
-				<button class="action-btn" id="camera-btn" title="Kamera">📷</button>
-				<button class="action-btn" id="gallery-btn" title="Galeri">🖼️</button>
-				<button class="action-btn" id="video-btn" title="Video">🎥</button>
-			</div>
 			<div class="message-input-wrapper">
 				<textarea class="message-input" id="message-input" placeholder="Mesajınızı yazın..."
 					rows="1"></textarea>

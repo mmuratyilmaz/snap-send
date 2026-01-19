@@ -1137,10 +1137,15 @@
 					sequence: messageSequence
 				};
 
+				const messagePayload = {
+					...message,
+					attachments: message.attachments.map(({ data, ...rest }) => rest)
+				};
+
 				// Upload message
 				const success = await uploadToGitHub(
 					`sessions/${SESSION_ID}/messages/${messageId}.json`,
-					message,
+					messagePayload,
 					`Mobile message ${messageSequence}`
 				);
 

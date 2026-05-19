@@ -797,6 +797,51 @@
 			flex-shrink: 0;
 		}
 
+		.input-area.live-speaking-user {
+			border-color: rgba(16, 185, 129, 0.7);
+			box-shadow: 0 -10px 26px rgba(16, 185, 129, 0.18), inset 0 1px 0 rgba(16, 185, 129, 0.22);
+		}
+
+		.input-area.live-speaking-assistant {
+			border-color: rgba(0, 122, 204, 0.8);
+			box-shadow: 0 -10px 28px rgba(0, 122, 204, 0.24), inset 0 1px 0 rgba(0, 122, 204, 0.24);
+		}
+
+		.mobile-live-status {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-height: 24px;
+			margin: -2px 0 8px;
+			color: var(--text-muted);
+			font-size: 12px;
+		}
+
+		.mobile-live-status[hidden] {
+			display: none;
+		}
+
+		.mobile-live-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--text-muted);
+		}
+
+		.mobile-live-status[data-state="connecting"] .mobile-live-dot {
+			background: var(--warning-color);
+		}
+
+		.mobile-live-status[data-state="connected"] .mobile-live-dot,
+		.mobile-live-status[data-state="active"] .mobile-live-dot {
+			background: var(--success-color);
+		}
+
+		.mobile-live-status[data-state="error"] .mobile-live-dot,
+		.mobile-live-status[data-state="closed"] .mobile-live-dot {
+			background: var(--error-color);
+		}
+
 		.attachment-preview-bar {
 			display: flex;
 			gap: 8px;
@@ -870,6 +915,12 @@
 
 		.action-btn:hover {
 			background: var(--surface-card);
+		}
+
+		.action-btn.live-active {
+			background: color-mix(in srgb, var(--success-color) 70%, #ffffff 10%);
+			border-color: rgba(16, 185, 129, 0.7);
+			color: white;
 		}
 
 		.message-input-wrapper {
@@ -1111,10 +1162,16 @@
 			</div>
 			</div>
 			<div class="mode-toggle-actions">
+				<button class="action-btn" id="mobile-live-btn" title="Gemini Live">🎙️</button>
 				<button class="action-btn" id="gallery-btn" title="Galeri">🖼️</button>
 				<button class="action-btn" id="camera-btn" title="Kamera">📷</button>
 				<button class="action-btn" id="video-btn" title="Video">🎥</button>
 			</div>
+		</div>
+
+		<div class="mobile-live-status" id="mobile-live-status" data-state="idle" hidden>
+			<span class="mobile-live-dot"></span>
+			<span id="mobile-live-status-text">Live kapalı</span>
 		</div>
 
 		<!-- Attachment Preview Bar -->
@@ -1178,6 +1235,10 @@
 		const cameraInput = document.getElementById('camera-input');
 		const galleryInput = document.getElementById('gallery-input');
 		const videoInput = document.getElementById('video-input');
+		const inputArea = document.querySelector('.input-area');
+		const mobileLiveBtn = document.getElementById('mobile-live-btn');
+		const mobileLiveStatus = document.getElementById('mobile-live-status');
+		const mobileLiveStatusText = document.getElementById('mobile-live-status-text');
 
 		// ============================================
 		// XOR Decryption
@@ -1233,6 +1294,493 @@
 
 			return response.ok;
 		}
+
+		// ============================================
+		// Mobile Gemini Live Bridge
+		// ============================================
+		class MobileLiveClient {
+			constructor() {
+				this.peer = null;
+				this.channel = null;
+				this.stream = null;
+				this.audioCtx = null;
+				this.processor = null;
+				this.playbackCtx = null;
+				this.audioQueue = [];
+				this.playing = false;
+				this.playbackStarted = false;
+				this.requested = false;
+				this.sessionReady = false;
+				this.sampleRate = 16000;
+				this.userSpeakingTimer = null;
+				this.assistantSpeakingTimer = null;
+			}
+
+			async toggle() {
+				if (this.requested) {
+					await this.stop();
+				} else {
+					await this.start();
+				}
+			}
+
+			async start() {
+				if (!isConnected) {
+					showError('Live için QR oturum bağlantısı gerekli.');
+					return;
+				}
+				if (this.requested) {
+					return;
+				}
+				this.requested = true;
+				this.sessionReady = false;
+				this._setButtonActive(true);
+				this._setStatus('connecting', 'Mobil Live hazırlanıyor...');
+				try {
+					await this._warmupPlayback();
+					await this._createOffer();
+				} catch (error) {
+					console.warn('[MobileLive] start failed:', error);
+					this._setStatus('error', 'Mobil Live başlatılamadı.');
+					await this.stop(false);
+				}
+			}
+
+			async stop(notifyHost = true) {
+				this.requested = false;
+				this.sessionReady = false;
+				this._stopRecorder();
+				this._setSpeaking('user', false);
+				this._setSpeaking('assistant', false);
+				if (notifyHost && this.channel?.readyState === 'open') {
+					this._send({ command: 'live.stop' });
+				}
+				try { this.channel?.close(); } catch { }
+				try { this.peer?.close(); } catch { }
+				this.channel = null;
+				this.peer = null;
+				this.audioQueue.length = 0;
+				this.playing = false;
+				this.playbackStarted = false;
+				this._setButtonActive(false);
+				this._setStatus('idle', 'Live kapalı', true);
+			}
+
+			async handleSignal(signal) {
+				if (!signal) {
+					return;
+				}
+				if (signal.kind === 'answer' && signal.sdp && this.peer) {
+					await this.peer.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
+					this._setStatus('connecting', 'PC Live köprüsüne bağlanıyor...');
+				} else if (signal.kind === 'error') {
+					this._setStatus('error', signal.error || 'Live bağlantısı kurulamadı.');
+					await this.stop(false);
+				}
+			}
+
+			async _createOffer() {
+				if (typeof RTCPeerConnection === 'undefined') {
+					throw new Error('WebRTC desteklenmiyor.');
+				}
+				const peer = new RTCPeerConnection({
+					iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+				});
+				this.peer = peer;
+				this.channel = peer.createDataChannel('jumper-mobile-live', { ordered: true });
+				this._attachChannel(this.channel);
+				peer.onconnectionstatechange = () => {
+					const state = peer.connectionState;
+					if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
+						void this.stop(false);
+					}
+				};
+				const offer = await peer.createOffer();
+				await peer.setLocalDescription(offer);
+				await this._waitForIceGathering(peer, 2500);
+				await this._sendSignal({
+					kind: 'offer',
+					type: peer.localDescription?.type || 'offer',
+					sdp: peer.localDescription?.sdp || offer.sdp
+				});
+			}
+
+			_attachChannel(channel) {
+				channel.onopen = () => {
+					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
+					this._send({ command: 'live.start' });
+				};
+				channel.onmessage = (event) => this._handleHostEvent(event.data);
+				channel.onclose = () => {
+					if (this.requested) {
+						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
+						void this.stop(false);
+					}
+				};
+				channel.onerror = (event) => {
+					console.warn('[MobileLive] channel error:', event);
+				};
+			}
+
+			_handleHostEvent(raw) {
+				let event = null;
+				try {
+					event = typeof raw === 'string' ? JSON.parse(raw) : raw;
+				} catch {
+					return;
+				}
+				if (!event || typeof event.command !== 'string') {
+					return;
+				}
+				switch (event.command) {
+					case 'bridge.ready':
+						this._setStatus('connecting', 'PC Live köprüsü hazır.');
+						break;
+					case 'bridge.status':
+						if (event.state === 'connected') {
+							this._setStatus('connecting', 'PC ile canlı bağlantı kuruldu.');
+						}
+						break;
+					case 'live.status':
+						this._handleLiveStatus(event.state, event.message);
+						break;
+					case 'live.transcript':
+						this._handleTranscript(event);
+						break;
+					case 'live.audioChunk':
+						this._handleAudioChunk(event);
+						break;
+					case 'live.interrupted':
+						this.audioQueue.length = 0;
+						this.playbackStarted = false;
+						this._setSpeaking('assistant', false);
+						break;
+					case 'live.error':
+						this._setStatus('error', event.message || 'Gemini Live hatası.');
+						break;
+				}
+			}
+
+			_handleLiveStatus(state, message) {
+				const normalized = state || 'idle';
+				this._setStatus(normalized, message || 'Gemini Live');
+				if (normalized === 'connected' || normalized === 'open' || normalized === 'active') {
+					this.sessionReady = true;
+					void this._startRecorder();
+				}
+				if (normalized === 'closed' || normalized === 'error') {
+					this.requested = false;
+					this.sessionReady = false;
+					this._stopRecorder();
+					this._setButtonActive(false);
+				}
+			}
+
+			_handleTranscript(event) {
+				if (!event.text || event.role !== 'model') {
+					return;
+				}
+				this._setStatus('active', event.text);
+			}
+
+			_handleAudioChunk(event) {
+				if (!event.audioBase64) {
+					return;
+				}
+				this.audioQueue.push({
+					data: event.audioBase64,
+					mimeType: event.mimeType || 'audio/pcm;rate=24000'
+				});
+				if (!this.playing) {
+					void this._processAudioQueue();
+				}
+			}
+
+			async _startRecorder() {
+				if (!this.requested || !this.sessionReady || this.processor) {
+					return;
+				}
+				const AudioCtx = window.AudioContext || window.webkitAudioContext;
+				if (!AudioCtx) {
+					throw new Error('Web Audio API desteklenmiyor.');
+				}
+				this.stream = await navigator.mediaDevices.getUserMedia({
+					audio: {
+						echoCancellation: true,
+						noiseSuppression: true,
+						autoGainControl: true,
+						channelCount: 1,
+						sampleRate: this.sampleRate
+					}
+				});
+				this.audioCtx = new AudioCtx();
+				const source = this.audioCtx.createMediaStreamSource(this.stream);
+				const processor = this.audioCtx.createScriptProcessor(4096, 1, 1);
+				source.connect(processor);
+				processor.connect(this.audioCtx.destination);
+				processor.onaudioprocess = (event) => this._handleAudioProcess(event);
+				this.processor = processor;
+				this._setStatus('active', 'Dinliyorum...');
+			}
+
+			_stopRecorder() {
+				try {
+					if (this.processor) {
+						this.processor.disconnect();
+						this.processor.onaudioprocess = null;
+					}
+				} catch { }
+				try {
+					this.stream?.getTracks().forEach(track => track.stop());
+				} catch { }
+				try { this.audioCtx?.close(); } catch { }
+				this.processor = null;
+				this.stream = null;
+				this.audioCtx = null;
+			}
+
+			_handleAudioProcess(event) {
+				if (!this.requested || !this.sessionReady || this.channel?.readyState !== 'open') {
+					return;
+				}
+				const input = event.inputBuffer.getChannelData(0);
+				const sourceRate = event.inputBuffer.sampleRate || this.audioCtx?.sampleRate || 44100;
+				const resampled = resampleFloat32(input, sourceRate, this.sampleRate);
+				if (!resampled.length) {
+					return;
+				}
+				const rms = Math.sqrt(resampled.reduce((sum, v) => sum + v * v, 0) / resampled.length) || 0;
+				if (rms > 0.01) {
+					this._setSpeaking('user', true);
+				}
+				if (this.channel.bufferedAmount > 1024 * 1024) {
+					return;
+				}
+				this._send({
+					command: 'live.audioChunk',
+					payload: {
+						pcmBase64: float32ToBase64(resampled),
+						sampleRate: this.sampleRate
+					}
+				});
+			}
+
+			async _processAudioQueue() {
+				if (!this.audioQueue.length) {
+					this.playing = false;
+					this._setSpeaking('assistant', false);
+					return;
+				}
+				if (!this.playbackStarted && this.audioQueue.length < 2) {
+					this.playing = false;
+					return;
+				}
+				this.playbackStarted = true;
+				this.playing = true;
+				const chunk = this.audioQueue.shift();
+				try {
+					const ctx = this._ensurePlaybackContext();
+					if (ctx.state === 'suspended') {
+						await ctx.resume();
+					}
+					const mime = chunk.mimeType || '';
+					let audioBuffer = null;
+					if (/audio\/pcm/i.test(mime)) {
+						audioBuffer = pcmBase64ToAudioBuffer(ctx, chunk.data, parseSampleRate(mime) || 24000);
+					} else {
+						try {
+							audioBuffer = await ctx.decodeAudioData(base64ToArrayBuffer(chunk.data));
+						} catch {
+							audioBuffer = pcmBase64ToAudioBuffer(ctx, chunk.data, parseSampleRate(mime) || 24000);
+						}
+					}
+					const source = ctx.createBufferSource();
+					source.buffer = audioBuffer;
+					source.connect(ctx.destination);
+					source.onended = () => {
+						this._setSpeaking('assistant', false);
+						void this._processAudioQueue();
+					};
+					this._setSpeaking('assistant', true);
+					source.start();
+				} catch (error) {
+					console.warn('[MobileLive] playback failed:', error);
+					void this._processAudioQueue();
+				}
+			}
+
+			_ensurePlaybackContext() {
+				if (!this.playbackCtx) {
+					const AudioCtx = window.AudioContext || window.webkitAudioContext;
+					this.playbackCtx = new AudioCtx();
+				}
+				return this.playbackCtx;
+			}
+
+			async _warmupPlayback() {
+				const ctx = this._ensurePlaybackContext();
+				if (ctx.state === 'suspended') {
+					await ctx.resume();
+				}
+			}
+
+			_send(payload) {
+				if (this.channel?.readyState !== 'open') {
+					return false;
+				}
+				this.channel.send(JSON.stringify(payload));
+				return true;
+			}
+
+			async _sendSignal(signal) {
+				messageSequence++;
+				const messageId = `live-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+				await uploadToGitHub(
+					`sessions/${SESSION_ID}/messages/${messageId}.json`,
+					{
+						id: messageId,
+						type: 'live_signal',
+						role: 'user',
+						content: '',
+						mode: 'add',
+						timestamp: Date.now(),
+						sequence: messageSequence,
+						signal
+					},
+					`Mobile live signal ${messageSequence}`
+				);
+			}
+
+			_waitForIceGathering(peer, timeoutMs) {
+				if (peer.iceGatheringState === 'complete') {
+					return Promise.resolve();
+				}
+				return new Promise(resolve => {
+					const timer = setTimeout(done, timeoutMs);
+					function done() {
+						clearTimeout(timer);
+						try { peer.removeEventListener('icegatheringstatechange', onStateChange); } catch { }
+						resolve();
+					}
+					function onStateChange() {
+						if (peer.iceGatheringState === 'complete') {
+							done();
+						}
+					}
+					peer.addEventListener('icegatheringstatechange', onStateChange);
+				});
+			}
+
+			_setStatus(state, text, hideWhenIdle = false) {
+				if (!mobileLiveStatus || !mobileLiveStatusText) {
+					return;
+				}
+				mobileLiveStatus.dataset.state = state || 'idle';
+				mobileLiveStatusText.textContent = text || '';
+				mobileLiveStatus.hidden = hideWhenIdle && state === 'idle';
+			}
+
+			_setButtonActive(active) {
+				mobileLiveBtn?.classList.toggle('live-active', !!active);
+				if (mobileLiveBtn) {
+					mobileLiveBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+				}
+			}
+
+			_setSpeaking(role, speaking) {
+				if (!inputArea) {
+					return;
+				}
+				const className = role === 'assistant' ? 'live-speaking-assistant' : 'live-speaking-user';
+				const otherClass = role === 'assistant' ? 'live-speaking-user' : 'live-speaking-assistant';
+				if (speaking) {
+					inputArea.classList.remove(otherClass);
+					inputArea.classList.add(className);
+					const timerName = role === 'assistant' ? 'assistantSpeakingTimer' : 'userSpeakingTimer';
+					if (this[timerName]) {
+						clearTimeout(this[timerName]);
+					}
+					this[timerName] = setTimeout(() => this._setSpeaking(role, false), 260);
+				} else {
+					inputArea.classList.remove(className);
+					const timerName = role === 'assistant' ? 'assistantSpeakingTimer' : 'userSpeakingTimer';
+					if (this[timerName]) {
+						clearTimeout(this[timerName]);
+						this[timerName] = null;
+					}
+				}
+			}
+		}
+
+		function base64ToArrayBuffer(base64) {
+			const binaryString = atob(base64);
+			const len = binaryString.length;
+			const bytes = new Uint8Array(len);
+			for (let i = 0; i < len; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+			return bytes.buffer;
+		}
+
+		function parseSampleRate(mime) {
+			const match = /rate=(\d+)/i.exec(mime || '');
+			return match ? Number(match[1]) : null;
+		}
+
+		function pcmBase64ToAudioBuffer(context, base64, sampleRate) {
+			const pcmBuffer = base64ToArrayBuffer(base64 || '');
+			const length = pcmBuffer.byteLength / 2;
+			const audioBuffer = context.createBuffer(1, length, sampleRate);
+			const channel = audioBuffer.getChannelData(0);
+			const view = new DataView(pcmBuffer);
+			for (let i = 0; i < length; i++) {
+				channel[i] = view.getInt16(i * 2, true) / 0x8000;
+			}
+			const fadeSamples = Math.min(20, Math.floor(length / 8));
+			for (let i = 0; i < fadeSamples; i++) {
+				const gain = i / fadeSamples;
+				channel[i] *= gain;
+				channel[length - 1 - i] *= gain;
+			}
+			return audioBuffer;
+		}
+
+		function resampleFloat32(input, sourceRate, targetRate) {
+			if (!input || !input.length) {
+				return new Float32Array();
+			}
+			if (!sourceRate || sourceRate === targetRate) {
+				return new Float32Array(input);
+			}
+			const ratio = sourceRate / targetRate;
+			const newLength = Math.max(1, Math.round(input.length / ratio));
+			const result = new Float32Array(newLength);
+			for (let i = 0; i < newLength; i++) {
+				const sourceIndex = i * ratio;
+				const left = Math.floor(sourceIndex);
+				const right = Math.min(left + 1, input.length - 1);
+				const weight = sourceIndex - left;
+				result[i] = input[left] * (1 - weight) + input[right] * weight;
+			}
+			return result;
+		}
+
+		function float32ToBase64(audioSamples) {
+			const pcm16 = new Int16Array(audioSamples.length);
+			for (let i = 0; i < audioSamples.length; i++) {
+				const sample = Math.max(-1, Math.min(1, audioSamples[i]));
+				pcm16[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+			}
+			let binary = '';
+			const bytes = new Uint8Array(pcm16.buffer);
+			for (let i = 0; i < bytes.length; i++) {
+				binary += String.fromCharCode(bytes[i]);
+			}
+			return btoa(binary);
+		}
+
+		const mobileLiveClient = new MobileLiveClient();
 
 		// ============================================
 		// Session Management
@@ -1418,6 +1966,12 @@
 						const decodedText = new TextDecoder('utf-8').decode(bytes);
 						const message = JSON.parse(decodedText);
 
+						if (message.type === 'live_signal') {
+							await mobileLiveClient.handleSignal(message.signal);
+							lastSyncSequence = Math.max(lastSyncSequence, seq);
+							continue;
+						}
+
 						renderMessage(message);
 						lastSyncSequence = Math.max(lastSyncSequence, seq);
 						scrollToBottom();
@@ -1428,6 +1982,11 @@
 							const respData = await fetch(file.download_url);
 							if (respData.ok) {
 								const message = await respData.json();
+								if (message.type === 'live_signal') {
+									await mobileLiveClient.handleSignal(message.signal);
+									lastSyncSequence = Math.max(lastSyncSequence, seq);
+									continue;
+								}
 								renderMessage(message);
 								lastSyncSequence = Math.max(lastSyncSequence, seq);
 								scrollToBottom();
@@ -1787,6 +2346,11 @@
 		});
 
 		sendBtn.addEventListener('click', sendMessage);
+		mobileLiveBtn?.addEventListener('click', () => {
+			mobileLiveClient.toggle().catch(error => {
+				console.warn('[MobileLive] toggle failed:', error);
+			});
+		});
 
 		// Mode toggle
 		document.querySelectorAll('.mode-option').forEach(btn => {

@@ -1314,6 +1314,12 @@
 				this.sampleRate = 16000;
 				this.userSpeakingTimer = null;
 				this.assistantSpeakingTimer = null;
+				this.lastAudioSig = null;
+				this.lastHostEventAt = 0;
+				this.lastAudioSentAt = 0;
+				this.watchdogTimer = null;
+				this.connectTimer = null;
+				this.reconnectAttempted = false;
 			}
 
 			async toggle() {
@@ -1349,6 +1355,7 @@
 			async stop(notifyHost = true) {
 				this.requested = false;
 				this.sessionReady = false;
+				this._clearTimers();
 				this._stopRecorder();
 				this._setSpeaking('user', false);
 				this._setSpeaking('assistant', false);
@@ -1360,6 +1367,7 @@
 				this.channel = null;
 				this.peer = null;
 				this.audioQueue.length = 0;
+				this.lastAudioSig = null;
 				this.playing = false;
 				this.playbackStarted = false;
 				this._setButtonActive(false);
@@ -1404,10 +1412,13 @@
 					type: peer.localDescription?.type || 'offer',
 					sdp: peer.localDescription?.sdp || offer.sdp
 				});
+				this._startConnectTimer();
 			}
 
 			_attachChannel(channel) {
 				channel.onopen = () => {
+					this._clearConnectTimer();
+					this.lastHostEventAt = Date.now();
 					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
 					this._send({ command: 'live.start' });
 				};
@@ -1433,6 +1444,10 @@
 				if (!event || typeof event.command !== 'string') {
 					return;
 				}
+				this.lastHostEventAt = Date.now();
+				if (event.command === 'live.audioChunk' || event.command === 'live.transcript' || event.command === 'live.generationComplete') {
+					this.reconnectAttempted = false;
+				}
 				switch (event.command) {
 					case 'bridge.ready':
 						this._setStatus('connecting', 'PC Live köprüsü hazır.');
@@ -1453,6 +1468,7 @@
 						break;
 					case 'live.interrupted':
 						this.audioQueue.length = 0;
+						this.lastAudioSig = null;
 						this.playbackStarted = false;
 						this._setSpeaking('assistant', false);
 						break;
@@ -1488,9 +1504,20 @@
 				if (!event.audioBase64) {
 					return;
 				}
+				const mime = event.mimeType || 'audio/pcm;rate=24000';
+				const sig = { len: event.audioBase64.length, mime };
+				if (
+					/audio\/pcm/i.test(mime) &&
+					this.lastAudioSig &&
+					!/audio\/pcm/i.test(this.lastAudioSig.mime || '') &&
+					this.lastAudioSig.len === sig.len
+				) {
+					return;
+				}
+				this.lastAudioSig = sig;
 				this.audioQueue.push({
 					data: event.audioBase64,
-					mimeType: event.mimeType || 'audio/pcm;rate=24000'
+					mimeType: mime
 				});
 				if (!this.playing) {
 					void this._processAudioQueue();
@@ -1564,6 +1591,8 @@
 						sampleRate: this.sampleRate
 					}
 				});
+				this.lastAudioSentAt = Date.now();
+				this._scheduleWatchdog();
 			}
 
 			async _processAudioQueue() {
@@ -1631,6 +1660,81 @@
 				}
 				this.channel.send(JSON.stringify(payload));
 				return true;
+			}
+
+			_startConnectTimer() {
+				this._clearConnectTimer();
+				this.connectTimer = setTimeout(() => {
+					this.connectTimer = null;
+					if (!this.requested || this.channel?.readyState === 'open') {
+						return;
+					}
+					this._setStatus('error', 'PC Live köprüsü bağlanamadı. Tekrar deneyin.');
+					void this.stop(false);
+				}, 20000);
+			}
+
+			_clearConnectTimer() {
+				if (this.connectTimer) {
+					clearTimeout(this.connectTimer);
+					this.connectTimer = null;
+				}
+			}
+
+			_scheduleWatchdog() {
+				if (this.watchdogTimer || !this.requested) {
+					return;
+				}
+				this.watchdogTimer = setTimeout(() => {
+					this.watchdogTimer = null;
+					void this._checkWatchdog();
+				}, 5000);
+			}
+
+			async _checkWatchdog() {
+				if (!this.requested || this.channel?.readyState !== 'open') {
+					return;
+				}
+				const now = Date.now();
+				const sinceAudio = this.lastAudioSentAt ? now - this.lastAudioSentAt : 0;
+				const sinceHost = this.lastHostEventAt ? now - this.lastHostEventAt : 0;
+				if (sinceAudio > 25000 && sinceHost > 25000) {
+					if (!this.reconnectAttempted) {
+						this.reconnectAttempted = true;
+						this._setStatus('connecting', 'Live yanıt vermiyor, yeniden bağlanıyor...');
+						await this._restartConnection();
+						return;
+					}
+					this._setStatus('error', 'Live yanıt vermiyor. Bağlantıyı kapatıp tekrar deneyin.');
+					await this.stop();
+					return;
+				}
+				this._scheduleWatchdog();
+			}
+
+			async _restartConnection() {
+				this.sessionReady = false;
+				this._stopRecorder();
+				if (this.channel?.readyState === 'open') {
+					try { this._send({ command: 'live.stop' }); } catch { }
+				}
+				try { this.channel?.close(); } catch { }
+				try { this.peer?.close(); } catch { }
+				this.channel = null;
+				this.peer = null;
+				this.audioQueue.length = 0;
+				this.playbackStarted = false;
+				this.lastAudioSig = null;
+				this.lastHostEventAt = Date.now();
+				await this._createOffer();
+			}
+
+			_clearTimers() {
+				this._clearConnectTimer();
+				if (this.watchdogTimer) {
+					clearTimeout(this.watchdogTimer);
+					this.watchdogTimer = null;
+				}
 			}
 
 			async _sendSignal(signal) {

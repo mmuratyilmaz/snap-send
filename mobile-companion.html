@@ -1221,6 +1221,8 @@
 		let sendMode = 'add';  // 'add' or 'send'
 		let pendingAttachments = [];
 		let lastSyncSequence = 0;
+		let responseBaselineSequence = 0;
+		const processedResponseSequences = new Set();
 		let messageSequence = 0;
 		let mobileDebugSequence = 0;
 		let heartbeatInterval = null;
@@ -1384,6 +1386,11 @@
 				this.lastAudioSentAt = 0;
 				this.watchdogTimer = null;
 				this.connectTimer = null;
+				this.reconnectTimer = null;
+				this.hostRestartTimer = null;
+				this.reconnectAttempts = 0;
+				this.maxReconnectAttempts = 8;
+				this.reconnectInProgress = false;
 				this.reconnectAttempted = false;
 			}
 
@@ -1418,6 +1425,8 @@
 				}
 				this.requested = true;
 				this.sessionReady = false;
+				this.reconnectAttempts = 0;
+				this.reconnectAttempted = false;
 				this._setButtonActive(true);
 				this._setStatus('connecting', 'Mobil Live hazırlanıyor...');
 				try {
@@ -1431,16 +1440,21 @@
 				}
 			}
 
-			async stop(notifyHost = true) {
+			async stop(notifyHost = true, options = {}) {
+				const preserveRequest = options && options.preserveRequest === true;
+				const keepStatus = options && options.keepStatus === true;
 				void sendMobileDebugLog('live.stop', {
 					notifyHost,
+					preserveRequest,
 					channelState: this.channel?.readyState || null,
 					peerState: this.peer?.connectionState || null,
 					sessionReady: this.sessionReady
 				});
-				this.requested = false;
+				if (!preserveRequest) {
+					this.requested = false;
+				}
 				this.sessionReady = false;
-				this._clearTimers();
+				this._clearTimers({ keepReconnect: preserveRequest });
 				this._stopRecorder();
 				this._setSpeaking('user', false);
 				this._setSpeaking('assistant', false);
@@ -1455,8 +1469,19 @@
 				this.lastAudioSig = null;
 				this.playing = false;
 				this.playbackStarted = false;
-				this._setButtonActive(false);
+				if (preserveRequest) {
+					this._setButtonActive(true);
+					if (!keepStatus) {
+						this._setStatus('connecting', 'Mobil Live yeniden baÄŸlanÄ±yor...');
+					}
+					return;
+				}
+				if (!preserveRequest) {
+					this.reconnectAttempts = 0;
+					this._setButtonActive(false);
 				this._setStatus('idle', 'Live kapalı', true);
+			}
+
 			}
 
 			async handleSignal(signal) {
@@ -1511,7 +1536,7 @@
 					void sendMobileDebugLog('webrtc.connection.state', { state });
 					if (state === 'failed' || state === 'disconnected' || state === 'closed') {
 						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
-						void this.stop(false);
+						this._scheduleReconnect(`peer-${state}`);
 					}
 				};
 				const offer = await peer.createOffer();
@@ -1536,6 +1561,8 @@
 				channel.onopen = () => {
 					this._clearConnectTimer();
 					this.lastHostEventAt = Date.now();
+					this.reconnectAttempts = 0;
+					this.reconnectAttempted = false;
 					console.log('[MobileLive] data channel open');
 					void sendMobileDebugLog('datachannel.open');
 					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
@@ -1549,7 +1576,7 @@
 					}, this.requested ? 'warn' : 'info');
 					if (this.requested) {
 						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
-						void this.stop(false);
+						this._scheduleReconnect('datachannel-close');
 					}
 				};
 				channel.onerror = (event) => {
@@ -1626,10 +1653,17 @@
 					});
 				}
 				if (normalized === 'closed' || normalized === 'error') {
-					this.requested = false;
 					this.sessionReady = false;
 					this._stopRecorder();
-					this._setButtonActive(false);
+					this._setSpeaking('user', false);
+					this._setSpeaking('assistant', false);
+					if (this.requested) {
+						this._setButtonActive(true);
+						this._setStatus('connecting', 'Gemini Live yeniden baÄŸlanÄ±yor...');
+						this._scheduleHostLiveRestart(normalized);
+					} else {
+						this._setButtonActive(false);
+					}
 				}
 			}
 
@@ -1833,7 +1867,7 @@
 						lastHostEventAgeMs: this.lastHostEventAt ? Date.now() - this.lastHostEventAt : null
 					}, 'warn');
 					this._setStatus('error', 'PC Live köprüsü bağlanamadı. Tekrar deneyin.');
-					void this.stop(false);
+					this._scheduleReconnect('connect-timeout');
 				}, 60000);
 			}
 
@@ -1865,7 +1899,7 @@
 					if (!this.reconnectAttempted) {
 						this.reconnectAttempted = true;
 						this._setStatus('connecting', 'Live yanıt vermiyor, yeniden bağlanıyor...');
-						await this._restartConnection();
+						this._scheduleReconnect('watchdog-silence');
 						return;
 					}
 					this._setStatus('error', 'Live yanıt vermiyor. Bağlantıyı kapatıp tekrar deneyin.');
@@ -1883,7 +1917,8 @@
 				this.sessionReady = false;
 				this._stopRecorder();
 				if (this.channel?.readyState === 'open') {
-					try { this._send({ command: 'live.stop' }); } catch { }
+					try { this._send({ command: 'live.audioStreamEnd' }); } catch { }
+					try { this._send({ command: 'live.turnComplete' }); } catch { }
 				}
 				try { this.channel?.close(); } catch { }
 				try { this.peer?.close(); } catch { }
@@ -1896,11 +1931,87 @@
 				await this._createOffer();
 			}
 
-			_clearTimers() {
+			_scheduleReconnect(reason) {
+				if (!this.requested) {
+					return;
+				}
+				if (this.reconnectTimer || this.reconnectInProgress) {
+					void sendMobileDebugLog('live.reconnect.skip', { reason, existingTimer: !!this.reconnectTimer, reconnectInProgress: this.reconnectInProgress }, 'warn');
+					return;
+				}
+				this.reconnectAttempts += 1;
+				if (this.reconnectAttempts > this.maxReconnectAttempts) {
+					void sendMobileDebugLog('live.reconnect.giveup', {
+						reason,
+						attempts: this.reconnectAttempts
+					}, 'error');
+					this._setStatus('error', 'Mobil Live baÄŸlantÄ±sÄ± yeniden kurulamadÄ±.');
+					void this.stop(false);
+					return;
+				}
+				const delayMs = Math.min(700 * Math.pow(1.7, this.reconnectAttempts - 1), 10000);
+				this.reconnectInProgress = true;
+				void sendMobileDebugLog('live.reconnect.scheduled', {
+					reason,
+					attempt: this.reconnectAttempts,
+					delayMs
+				}, 'warn');
+				this._setStatus('connecting', 'PC Live kÃ¶prÃ¼sÃ¼ yeniden baÄŸlanÄ±yor...');
+				void this.stop(false, { preserveRequest: true, keepStatus: true });
+				this.reconnectTimer = setTimeout(() => {
+					this.reconnectTimer = null;
+					this.reconnectInProgress = false;
+					if (!this.requested) {
+						return;
+					}
+					this._createOffer()
+						.then(() => {
+							void sendMobileDebugLog('live.reconnect.offer.sent', {
+								attempt: this.reconnectAttempts
+							});
+						})
+						.catch(error => {
+							void sendMobileDebugLog('live.reconnect.offer.failed', {
+								attempt: this.reconnectAttempts,
+								error
+							}, 'error');
+							this._scheduleReconnect('offer-failed');
+						});
+				}, delayMs);
+			}
+
+			_scheduleHostLiveRestart(reason) {
+				if (!this.requested || this.channel?.readyState !== 'open') {
+					return;
+				}
+				if (this.hostRestartTimer) {
+					clearTimeout(this.hostRestartTimer);
+				}
+				void sendMobileDebugLog('live.host.restart.scheduled', { reason }, 'warn');
+				this.hostRestartTimer = setTimeout(() => {
+					this.hostRestartTimer = null;
+					if (!this.requested || this.channel?.readyState !== 'open' || this.sessionReady) {
+						return;
+					}
+					void sendMobileDebugLog('live.host.restart.request', { reason }, 'warn');
+					this._send({ command: 'live.start' });
+				}, 2500);
+			}
+
+			_clearTimers(options = {}) {
 				this._clearConnectTimer();
 				if (this.watchdogTimer) {
 					clearTimeout(this.watchdogTimer);
 					this.watchdogTimer = null;
+				}
+				if (this.hostRestartTimer) {
+					clearTimeout(this.hostRestartTimer);
+					this.hostRestartTimer = null;
+				}
+				if (!options.keepReconnect && this.reconnectTimer) {
+					clearTimeout(this.reconnectTimer);
+					this.reconnectTimer = null;
+					this.reconnectInProgress = false;
 				}
 			}
 
@@ -1927,20 +2038,34 @@
 					messageId,
 					sequence: messageSequence
 				});
-				const success = await uploadToGitHub(
-					`sessions/${SESSION_ID}/messages/${messageId}.json`,
-					{
-						id: messageId,
-						type: 'live_signal',
-						role: 'user',
-						content: '',
-						mode: 'add',
-						timestamp: Date.now(),
-						sequence: messageSequence,
-						signal
-					},
-					`Mobile live signal ${messageSequence}`
-				);
+				let success = false;
+				const maxAttempts = 5;
+				for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+					success = await uploadToGitHub(
+						`sessions/${SESSION_ID}/messages/${messageId}.json`,
+						{
+							id: messageId,
+							type: 'live_signal',
+							role: 'user',
+							content: '',
+							mode: 'add',
+							timestamp: Date.now(),
+							sequence: messageSequence,
+							signal
+						},
+						`Mobile live signal ${messageSequence}`
+					);
+					if (success) {
+						break;
+					}
+					void sendMobileDebugLog('live.signal.upload.retry', {
+						kind: signal.kind,
+						messageId,
+						attempt,
+						maxAttempts
+					}, 'warn');
+					await new Promise(resolve => setTimeout(resolve, Math.min(800 * attempt, 3500)));
+				}
 				void sendMobileDebugLog('live.signal.upload.done', {
 					kind: signal.kind,
 					messageId,
@@ -2166,6 +2291,8 @@
 
 				connectionStatus.style.display = 'none';
 				lastSyncSequence = conversation.lastSyncSequence || 0;
+				responseBaselineSequence = lastSyncSequence;
+				processedResponseSequences.clear();
 				messageSequence = lastSyncSequence;
 
 				// Render messages
@@ -2261,7 +2388,7 @@
 					if (!seqMatch) continue;
 
 					const seq = parseInt(seqMatch[1], 10);
-					if (seq <= lastSyncSequence) continue;
+					if (seq <= responseBaselineSequence || processedResponseSequences.has(seq)) continue;
 
 					// UTF-8 encoding sorununu düzeltmek için GitHub API'den base64 content'i al
 					try {
@@ -2284,11 +2411,13 @@
 						if (message.type === 'live_signal') {
 							console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
 							await mobileLiveClient.handleSignal(message.signal);
+							processedResponseSequences.add(seq);
 							lastSyncSequence = Math.max(lastSyncSequence, seq);
 							continue;
 						}
 
 						renderMessage(message);
+						processedResponseSequences.add(seq);
 						lastSyncSequence = Math.max(lastSyncSequence, seq);
 						scrollToBottom();
 					} catch (decodeError) {
@@ -2301,10 +2430,12 @@
 								if (message.type === 'live_signal') {
 									console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
 									await mobileLiveClient.handleSignal(message.signal);
+									processedResponseSequences.add(seq);
 									lastSyncSequence = Math.max(lastSyncSequence, seq);
 									continue;
 								}
 								renderMessage(message);
+								processedResponseSequences.add(seq);
 								lastSyncSequence = Math.max(lastSyncSequence, seq);
 								scrollToBottom();
 							}

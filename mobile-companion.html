@@ -1379,6 +1379,7 @@
 					return;
 				}
 				if (signal.kind === 'answer' && signal.sdp && this.peer) {
+					console.log('[MobileLive] answer received');
 					await this.peer.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
 					this._setStatus('connecting', 'PC Live köprüsüne bağlanıyor...');
 				} else if (signal.kind === 'error') {
@@ -1412,6 +1413,7 @@
 					type: peer.localDescription?.type || 'offer',
 					sdp: peer.localDescription?.sdp || offer.sdp
 				});
+				console.log('[MobileLive] offer sent');
 				this._startConnectTimer();
 			}
 
@@ -1419,6 +1421,7 @@
 				channel.onopen = () => {
 					this._clearConnectTimer();
 					this.lastHostEventAt = Date.now();
+					console.log('[MobileLive] data channel open');
 					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
 					this._send({ command: 'live.start' });
 				};
@@ -1740,7 +1743,7 @@
 			async _sendSignal(signal) {
 				messageSequence++;
 				const messageId = `live-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-				await uploadToGitHub(
+				const success = await uploadToGitHub(
 					`sessions/${SESSION_ID}/messages/${messageId}.json`,
 					{
 						id: messageId,
@@ -1754,6 +1757,10 @@
 					},
 					`Mobile live signal ${messageSequence}`
 				);
+				if (!success) {
+					this._setStatus('error', 'Live sinyali gönderilemedi. QR oturumunu yenileyin.');
+					throw new Error('Mobile live signal upload failed');
+				}
 			}
 
 			_waitForIceGathering(peer, timeoutMs) {
@@ -2071,6 +2078,7 @@
 						const message = JSON.parse(decodedText);
 
 						if (message.type === 'live_signal') {
+							console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
 							await mobileLiveClient.handleSignal(message.signal);
 							lastSyncSequence = Math.max(lastSyncSequence, seq);
 							continue;
@@ -2087,6 +2095,7 @@
 							if (respData.ok) {
 								const message = await respData.json();
 								if (message.type === 'live_signal') {
+									console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
 									await mobileLiveClient.handleSignal(message.signal);
 									lastSyncSequence = Math.max(lastSyncSequence, seq);
 									continue;

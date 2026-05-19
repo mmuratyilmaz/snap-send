@@ -1436,6 +1436,7 @@
 				this.reconnectAttempted = false;
 				this.micMuted = false;
 				this.audioStreamEndTimer = null;
+				this.readyChimeTimer = null;
 			}
 
 			async toggle() {
@@ -1531,7 +1532,7 @@
 			}
 
 			toggleMicMute() {
-				if (!this.requested) {
+				if (!this.requested || !this.sessionReady || !this.processor) {
 					return;
 				}
 				this.setMicMuted(!this.micMuted, { fromUser: true });
@@ -1841,6 +1842,10 @@
 				this.processor = processor;
 				this._syncMuteToTracks();
 				this._setStatus('active', this.micMuted ? 'Mikrofon susturuldu.' : 'Dinliyorum...');
+				this._setMuteButtonVisible(true);
+				if (!this.micMuted) {
+					void this._playReadyChime();
+				}
 				void sendMobileDebugLog('recorder.started', {
 					contextRate: this.audioCtx.sampleRate,
 					targetRate: this.sampleRate,
@@ -1862,6 +1867,7 @@
 				this.processor = null;
 				this.stream = null;
 				this.audioCtx = null;
+				this._setMuteButtonVisible(false);
 			}
 
 			_handleAudioProcess(event) {
@@ -1948,6 +1954,42 @@
 				const ctx = this._ensurePlaybackContext();
 				if (ctx.state === 'suspended') {
 					await ctx.resume();
+				}
+			}
+
+			async _playReadyChime() {
+				try {
+					if (this.readyChimeTimer) {
+						clearTimeout(this.readyChimeTimer);
+						this.readyChimeTimer = null;
+					}
+					const ctx = this._ensurePlaybackContext();
+					if (ctx.state === 'suspended') {
+						await ctx.resume();
+					}
+					const playTone = (frequency, startOffset, duration, peakGain) => {
+						const osc = ctx.createOscillator();
+						const gain = ctx.createGain();
+						const startAt = ctx.currentTime + startOffset;
+						const endAt = startAt + duration;
+						osc.type = 'sine';
+						osc.frequency.setValueAtTime(frequency, startAt);
+						gain.gain.setValueAtTime(0, startAt);
+						gain.gain.linearRampToValueAtTime(peakGain, startAt + 0.025);
+						gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
+						osc.connect(gain);
+						gain.connect(ctx.destination);
+						osc.start(startAt);
+						osc.stop(endAt + 0.02);
+					};
+					playTone(660, 0, 0.12, 0.045);
+					playTone(880, 0.105, 0.14, 0.035);
+					this.readyChimeTimer = setTimeout(() => {
+						this.readyChimeTimer = null;
+					}, 450);
+					void sendMobileDebugLog('live.ready.chime');
+				} catch (error) {
+					void sendMobileDebugLog('live.ready.chime.failed', { error }, 'warn');
 				}
 			}
 
@@ -2111,6 +2153,10 @@
 			_clearTimers(options = {}) {
 				this._clearConnectTimer();
 				this._cancelAudioStreamEnd();
+				if (this.readyChimeTimer) {
+					clearTimeout(this.readyChimeTimer);
+					this.readyChimeTimer = null;
+				}
 				if (this.watchdogTimer) {
 					clearTimeout(this.watchdogTimer);
 					this.watchdogTimer = null;
@@ -2222,8 +2268,14 @@
 				if (mobileLiveBtn) {
 					mobileLiveBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
 				}
+				if (!active) {
+					this._setMuteButtonVisible(false);
+				}
+			}
+
+			_setMuteButtonVisible(visible) {
 				if (mobileLiveMuteBtn) {
-					mobileLiveMuteBtn.hidden = !active;
+					mobileLiveMuteBtn.hidden = !visible;
 					this._updateMuteButton();
 				}
 			}

@@ -1528,6 +1528,7 @@
 				});
 				console.log('[MobileLive] offer sent');
 				void sendMobileDebugLog('webrtc.offer.sent');
+				this._scheduleSignalPollBurst();
 				this._startConnectTimer();
 			}
 
@@ -1825,9 +1826,15 @@
 					if (!this.requested || this.channel?.readyState === 'open') {
 						return;
 					}
+					void sendMobileDebugLog('live.connect.timeout', {
+						channelState: this.channel?.readyState || null,
+						peerState: this.peer?.connectionState || null,
+						sessionReady: this.sessionReady,
+						lastHostEventAgeMs: this.lastHostEventAt ? Date.now() - this.lastHostEventAt : null
+					}, 'warn');
 					this._setStatus('error', 'PC Live köprüsü bağlanamadı. Tekrar deneyin.');
 					void this.stop(false);
-				}, 20000);
+				}, 60000);
 			}
 
 			_clearConnectTimer() {
@@ -1894,6 +1901,19 @@
 				if (this.watchdogTimer) {
 					clearTimeout(this.watchdogTimer);
 					this.watchdogTimer = null;
+				}
+			}
+
+			_scheduleSignalPollBurst() {
+				const delays = [300, 900, 1800, 3200, 5000, 8000, 12000];
+				for (const delay of delays) {
+					setTimeout(() => {
+						if (this.requested && this.channel?.readyState !== 'open') {
+							checkForNewResponses().catch(error => {
+								void sendMobileDebugLog('live.signal.poll.failed', { error }, 'warn');
+							});
+						}
+					}, delay);
 				}
 			}
 
@@ -2229,6 +2249,11 @@
 				if (!response.ok) return;
 
 				const files = await response.json();
+				files.sort((a, b) => {
+					const aSeq = parseInt((a.name.match(/resp-(\d+)\.json/) || [])[1] || '0', 10);
+					const bSeq = parseInt((b.name.match(/resp-(\d+)\.json/) || [])[1] || '0', 10);
+					return aSeq - bSeq;
+				});
 				for (const file of files) {
 					if (!file.name.endsWith('.json')) continue;
 

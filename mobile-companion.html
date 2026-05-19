@@ -1222,6 +1222,7 @@
 		let pendingAttachments = [];
 		let lastSyncSequence = 0;
 		let messageSequence = 0;
+		let mobileDebugSequence = 0;
 		let heartbeatInterval = null;
 
 		// DOM Elements
@@ -1295,6 +1296,70 @@
 			return response.ok;
 		}
 
+		function simplifyForMobileLog(value, depth = 0) {
+			if (value instanceof Error) {
+				return {
+					name: value.name,
+					message: value.message,
+					stack: value.stack ? value.stack.split('\n').slice(0, 3).join(' | ') : undefined
+				};
+			}
+			if (value === null || value === undefined || typeof value === 'number' || typeof value === 'boolean') {
+				return value;
+			}
+			if (typeof value === 'string') {
+				return value.length > 500 ? `${value.slice(0, 500)}...(${value.length})` : value;
+			}
+			if (depth > 2) {
+				return '[depth-limit]';
+			}
+			if (Array.isArray(value)) {
+				return value.slice(0, 8).map(item => simplifyForMobileLog(item, depth + 1));
+			}
+			if (typeof value === 'object') {
+				const result = {};
+				for (const key of Object.keys(value).slice(0, 16)) {
+					if (/token|key|authorization|content|audio|pcm|sdp/i.test(key)) {
+						const raw = value[key];
+						result[key] = typeof raw === 'string' ? `[redacted:${raw.length}]` : '[redacted]';
+					} else {
+						result[key] = simplifyForMobileLog(value[key], depth + 1);
+					}
+				}
+				return result;
+			}
+			return String(value);
+		}
+
+		async function sendMobileDebugLog(event, details = {}, level = 'info') {
+			if (!githubToken || !SESSION_ID) {
+				return;
+			}
+			const sequence = ++mobileDebugSequence;
+			const id = `mobile-log-${Date.now()}-${sequence}`;
+			const payload = {
+				id,
+				type: 'mobile_log',
+				role: 'user',
+				content: '',
+				mode: 'add',
+				level,
+				event,
+				details: simplifyForMobileLog(details),
+				timestamp: Date.now(),
+				sequence
+			};
+			try {
+				await uploadToGitHub(
+					`sessions/${SESSION_ID}/messages/${id}.json`,
+					payload,
+					`Mobile debug ${event}`
+				);
+			} catch (error) {
+				console.warn('[MobileDebug] upload failed:', error);
+			}
+		}
+
 		// ============================================
 		// Mobile Gemini Live Bridge
 		// ============================================
@@ -1323,6 +1388,11 @@
 			}
 
 			async toggle() {
+				void sendMobileDebugLog('live.toggle', {
+					requested: this.requested,
+					channelState: this.channel?.readyState || null,
+					peerState: this.peer?.connectionState || null
+				});
 				if (this.requested) {
 					await this.stop();
 				} else {
@@ -1331,11 +1401,19 @@
 			}
 
 			async start() {
+				void sendMobileDebugLog('live.start.request', {
+					isConnected,
+					hasRtc: typeof RTCPeerConnection !== 'undefined',
+					hasMediaDevices: !!navigator.mediaDevices?.getUserMedia,
+					userAgent: navigator.userAgent
+				});
 				if (!isConnected) {
 					showError('Live için QR oturum bağlantısı gerekli.');
+					void sendMobileDebugLog('live.start.blocked', { reason: 'qr-not-connected' }, 'warn');
 					return;
 				}
 				if (this.requested) {
+					void sendMobileDebugLog('live.start.ignored', { reason: 'already-requested' }, 'warn');
 					return;
 				}
 				this.requested = true;
@@ -1347,12 +1425,19 @@
 					await this._createOffer();
 				} catch (error) {
 					console.warn('[MobileLive] start failed:', error);
+					void sendMobileDebugLog('live.start.failed', { error }, 'error');
 					this._setStatus('error', 'Mobil Live başlatılamadı.');
 					await this.stop(false);
 				}
 			}
 
 			async stop(notifyHost = true) {
+				void sendMobileDebugLog('live.stop', {
+					notifyHost,
+					channelState: this.channel?.readyState || null,
+					peerState: this.peer?.connectionState || null,
+					sessionReady: this.sessionReady
+				});
 				this.requested = false;
 				this.sessionReady = false;
 				this._clearTimers();
@@ -1376,15 +1461,31 @@
 
 			async handleSignal(signal) {
 				if (!signal) {
+					void sendMobileDebugLog('live.signal.empty', {}, 'warn');
 					return;
 				}
+				void sendMobileDebugLog('live.signal.received', {
+					kind: signal.kind,
+					type: signal.type,
+					hasSdp: !!signal.sdp,
+					hasPeer: !!this.peer,
+					peerState: this.peer?.connectionState || null,
+					channelState: this.channel?.readyState || null
+				});
 				if (signal.kind === 'answer' && signal.sdp && this.peer) {
 					console.log('[MobileLive] answer received');
 					await this.peer.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
 					this._setStatus('connecting', 'PC Live köprüsüne bağlanıyor...');
 				} else if (signal.kind === 'error') {
+					void sendMobileDebugLog('live.signal.error', { error: signal.error }, 'error');
 					this._setStatus('error', signal.error || 'Live bağlantısı kurulamadı.');
 					await this.stop(false);
+				} else {
+					void sendMobileDebugLog('live.signal.ignored', {
+						kind: signal.kind,
+						hasSdp: !!signal.sdp,
+						hasPeer: !!this.peer
+					}, 'warn');
 				}
 			}
 
@@ -1392,14 +1493,22 @@
 				if (typeof RTCPeerConnection === 'undefined') {
 					throw new Error('WebRTC desteklenmiyor.');
 				}
+				void sendMobileDebugLog('webrtc.offer.create.start');
 				const peer = new RTCPeerConnection({
 					iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 				});
 				this.peer = peer;
 				this.channel = peer.createDataChannel('jumper-mobile-live', { ordered: true });
 				this._attachChannel(this.channel);
+				peer.onicegatheringstatechange = () => {
+					void sendMobileDebugLog('webrtc.ice.state', { state: peer.iceGatheringState });
+				};
+				peer.oniceconnectionstatechange = () => {
+					void sendMobileDebugLog('webrtc.iceConnection.state', { state: peer.iceConnectionState });
+				};
 				peer.onconnectionstatechange = () => {
 					const state = peer.connectionState;
+					void sendMobileDebugLog('webrtc.connection.state', { state });
 					if (state === 'failed' || state === 'disconnected' || state === 'closed') {
 						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
 						void this.stop(false);
@@ -1407,6 +1516,10 @@
 				};
 				const offer = await peer.createOffer();
 				await peer.setLocalDescription(offer);
+				void sendMobileDebugLog('webrtc.offer.localDescription.set', {
+					type: peer.localDescription?.type || offer.type,
+					sdpLength: (peer.localDescription?.sdp || offer.sdp || '').length
+				});
 				await this._waitForIceGathering(peer, 2500);
 				await this._sendSignal({
 					kind: 'offer',
@@ -1414,6 +1527,7 @@
 					sdp: peer.localDescription?.sdp || offer.sdp
 				});
 				console.log('[MobileLive] offer sent');
+				void sendMobileDebugLog('webrtc.offer.sent');
 				this._startConnectTimer();
 			}
 
@@ -1422,11 +1536,16 @@
 					this._clearConnectTimer();
 					this.lastHostEventAt = Date.now();
 					console.log('[MobileLive] data channel open');
+					void sendMobileDebugLog('datachannel.open');
 					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
 					this._send({ command: 'live.start' });
 				};
 				channel.onmessage = (event) => this._handleHostEvent(event.data);
 				channel.onclose = () => {
+					void sendMobileDebugLog('datachannel.close', {
+						requested: this.requested,
+						peerState: this.peer?.connectionState || null
+					}, this.requested ? 'warn' : 'info');
 					if (this.requested) {
 						this._setStatus('closed', 'Mobil Live bağlantısı kapandı.');
 						void this.stop(false);
@@ -1434,6 +1553,10 @@
 				};
 				channel.onerror = (event) => {
 					console.warn('[MobileLive] channel error:', event);
+					void sendMobileDebugLog('datachannel.error', {
+						type: event?.type || 'error',
+						peerState: this.peer?.connectionState || null
+					}, 'error');
 				};
 			}
 
@@ -1448,6 +1571,15 @@
 					return;
 				}
 				this.lastHostEventAt = Date.now();
+				if (event.command !== 'live.audioChunk') {
+					void sendMobileDebugLog('host.event', {
+						command: event.command,
+						state: event.state,
+						message: event.message,
+						role: event.role,
+						isFinal: event.isFinal
+					});
+				}
 				if (event.command === 'live.audioChunk' || event.command === 'live.transcript' || event.command === 'live.generationComplete') {
 					this.reconnectAttempted = false;
 				}
@@ -1486,7 +1618,11 @@
 				this._setStatus(normalized, message || 'Gemini Live');
 				if (normalized === 'connected' || normalized === 'open' || normalized === 'active') {
 					this.sessionReady = true;
-					void this._startRecorder();
+					this._startRecorder().catch(error => {
+						void sendMobileDebugLog('recorder.start.failed', { error }, 'error');
+						this._setStatus('error', 'Mikrofon başlatılamadı.');
+						void this.stop();
+					});
 				}
 				if (normalized === 'closed' || normalized === 'error') {
 					this.requested = false;
@@ -1529,12 +1665,18 @@
 
 			async _startRecorder() {
 				if (!this.requested || !this.sessionReady || this.processor) {
+					void sendMobileDebugLog('recorder.start.skipped', {
+						requested: this.requested,
+						sessionReady: this.sessionReady,
+						hasProcessor: !!this.processor
+					});
 					return;
 				}
 				const AudioCtx = window.AudioContext || window.webkitAudioContext;
 				if (!AudioCtx) {
 					throw new Error('Web Audio API desteklenmiyor.');
 				}
+				void sendMobileDebugLog('recorder.permission.request');
 				this.stream = await navigator.mediaDevices.getUserMedia({
 					audio: {
 						echoCancellation: true,
@@ -1544,6 +1686,13 @@
 						sampleRate: this.sampleRate
 					}
 				});
+				void sendMobileDebugLog('recorder.permission.granted', {
+					tracks: this.stream.getAudioTracks().map(track => ({
+						enabled: track.enabled,
+						readyState: track.readyState,
+						label: track.label
+					}))
+				});
 				this.audioCtx = new AudioCtx();
 				const source = this.audioCtx.createMediaStreamSource(this.stream);
 				const processor = this.audioCtx.createScriptProcessor(4096, 1, 1);
@@ -1552,6 +1701,10 @@
 				processor.onaudioprocess = (event) => this._handleAudioProcess(event);
 				this.processor = processor;
 				this._setStatus('active', 'Dinliyorum...');
+				void sendMobileDebugLog('recorder.started', {
+					contextRate: this.audioCtx.sampleRate,
+					targetRate: this.sampleRate
+				});
 			}
 
 			_stopRecorder() {
@@ -1716,6 +1869,10 @@
 			}
 
 			async _restartConnection() {
+				void sendMobileDebugLog('live.restart.start', {
+					channelState: this.channel?.readyState || null,
+					peerState: this.peer?.connectionState || null
+				}, 'warn');
 				this.sessionReady = false;
 				this._stopRecorder();
 				if (this.channel?.readyState === 'open') {
@@ -1743,6 +1900,13 @@
 			async _sendSignal(signal) {
 				messageSequence++;
 				const messageId = `live-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+				void sendMobileDebugLog('live.signal.upload.start', {
+					kind: signal.kind,
+					type: signal.type,
+					sdpLength: signal.sdp ? signal.sdp.length : 0,
+					messageId,
+					sequence: messageSequence
+				});
 				const success = await uploadToGitHub(
 					`sessions/${SESSION_ID}/messages/${messageId}.json`,
 					{
@@ -1757,6 +1921,11 @@
 					},
 					`Mobile live signal ${messageSequence}`
 				);
+				void sendMobileDebugLog('live.signal.upload.done', {
+					kind: signal.kind,
+					messageId,
+					success
+				}, success ? 'info' : 'error');
 				if (!success) {
 					this._setStatus('error', 'Live sinyali gönderilemedi. QR oturumunu yenileyin.');
 					throw new Error('Mobile live signal upload failed');
@@ -1908,6 +2077,14 @@
 				showError('Token çözülemiyor');
 				return;
 			}
+			void sendMobileDebugLog('session.init.start', {
+				sessionId: SESSION_ID,
+				hasToken: true,
+				hasRtc: typeof RTCPeerConnection !== 'undefined',
+				hasMediaDevices: !!navigator.mediaDevices?.getUserMedia,
+				url: `${window.location.origin}${window.location.pathname}`,
+				userAgent: navigator.userAgent
+			});
 
 			// Verify session
 			try {
@@ -1929,6 +2106,7 @@
 
 				// Connected!
 				setConnected(true);
+				void sendMobileDebugLog('session.connected');
 
 				// Load conversation
 				await loadConversation();
@@ -1940,6 +2118,7 @@
 				startPolling();
 
 			} catch (error) {
+				void sendMobileDebugLog('session.init.failed', { error }, 'error');
 				showError(error.message);
 			}
 		}

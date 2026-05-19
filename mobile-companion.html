@@ -923,6 +923,30 @@
 			color: white;
 		}
 
+		.action-btn.live-muted {
+			background: rgba(239, 68, 68, 0.18);
+			border-color: rgba(239, 68, 68, 0.65);
+			color: #fca5a5;
+		}
+
+		.action-btn svg {
+			width: 18px;
+			height: 18px;
+			pointer-events: none;
+		}
+
+		.action-btn .mic-off-icon {
+			display: none;
+		}
+
+		.action-btn.live-muted .mic-on-icon {
+			display: none;
+		}
+
+		.action-btn.live-muted .mic-off-icon {
+			display: block;
+		}
+
 		.message-input-wrapper {
 			flex: 1;
 			background: var(--surface-card);
@@ -1163,6 +1187,23 @@
 			</div>
 			<div class="mode-toggle-actions">
 				<button class="action-btn" id="mobile-live-btn" title="Gemini Live">🎙️</button>
+				<button class="action-btn" id="mobile-live-mute-btn" title="Mikrofonu sustur" aria-pressed="false" hidden>
+					<svg class="mic-on-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+						<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+						<path d="M12 19v3" />
+					</svg>
+					<svg class="mic-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="m2 2 20 20" />
+						<path d="M9 9v3a3 3 0 0 0 5.1 2.1" />
+						<path d="M15 9.3V5a3 3 0 0 0-5.1-2.1" />
+						<path d="M19 10v2a7 7 0 0 1-.8 3.2" />
+						<path d="M5 10v2a7 7 0 0 0 10.8 5.9" />
+						<path d="M12 19v3" />
+					</svg>
+				</button>
 				<button class="action-btn" id="gallery-btn" title="Galeri">🖼️</button>
 				<button class="action-btn" id="camera-btn" title="Kamera">📷</button>
 				<button class="action-btn" id="video-btn" title="Video">🎥</button>
@@ -1240,6 +1281,7 @@
 		const videoInput = document.getElementById('video-input');
 		const inputArea = document.querySelector('.input-area');
 		const mobileLiveBtn = document.getElementById('mobile-live-btn');
+		const mobileLiveMuteBtn = document.getElementById('mobile-live-mute-btn');
 		const mobileLiveStatus = document.getElementById('mobile-live-status');
 		const mobileLiveStatusText = document.getElementById('mobile-live-status-text');
 
@@ -1392,6 +1434,8 @@
 				this.maxReconnectAttempts = 8;
 				this.reconnectInProgress = false;
 				this.reconnectAttempted = false;
+				this.micMuted = false;
+				this.audioStreamEndTimer = null;
 			}
 
 			async toggle() {
@@ -1427,6 +1471,7 @@
 				this.sessionReady = false;
 				this.reconnectAttempts = 0;
 				this.reconnectAttempted = false;
+				this.setMicMuted(false, { silent: true });
 				this._setButtonActive(true);
 				this._setStatus('connecting', 'Mobil Live hazırlanıyor...');
 				try {
@@ -1455,6 +1500,7 @@
 				}
 				this.sessionReady = false;
 				this._clearTimers({ keepReconnect: preserveRequest });
+				this._cancelAudioStreamEnd();
 				this._stopRecorder();
 				this._setSpeaking('user', false);
 				this._setSpeaking('assistant', false);
@@ -1478,10 +1524,68 @@
 				}
 				if (!preserveRequest) {
 					this.reconnectAttempts = 0;
+					this.setMicMuted(false, { silent: true });
 					this._setButtonActive(false);
-				this._setStatus('idle', 'Live kapalı', true);
+					this._setStatus('idle', 'Live kapalı', true);
+				}
 			}
 
+			toggleMicMute() {
+				if (!this.requested) {
+					return;
+				}
+				this.setMicMuted(!this.micMuted, { fromUser: true });
+			}
+
+			setMicMuted(muted, options = {}) {
+				this.micMuted = !!muted;
+				this._syncMuteToTracks();
+				if (this.micMuted) {
+					this._setSpeaking('user', false);
+					if (!options.silent) {
+						this._scheduleAudioStreamEnd();
+					}
+				} else {
+					this._cancelAudioStreamEnd();
+				}
+				this._updateMuteButton();
+				if (options.fromUser) {
+					this._setStatus('active', this.micMuted ? 'Mikrofon susturuldu.' : 'Dinliyorum...');
+				}
+				void sendMobileDebugLog('live.mic.mute', {
+					muted: this.micMuted,
+					hasStream: !!this.stream,
+					trackCount: this.stream?.getAudioTracks?.().length || 0
+				});
+			}
+
+			_syncMuteToTracks() {
+				try {
+					this.stream?.getAudioTracks().forEach(track => {
+						track.enabled = !this.micMuted;
+					});
+				} catch { }
+			}
+
+			_scheduleAudioStreamEnd() {
+				this._cancelAudioStreamEnd();
+				this.audioStreamEndTimer = setTimeout(() => {
+					this.audioStreamEndTimer = null;
+					if (!this.requested || !this.sessionReady || !this.micMuted || this.channel?.readyState !== 'open') {
+						return;
+					}
+					try {
+						this._send({ command: 'live.audioStreamEnd' });
+						void sendMobileDebugLog('live.audioStreamEnd.sent', { reason: 'mobile-mute' });
+					} catch { }
+				}, 900);
+			}
+
+			_cancelAudioStreamEnd() {
+				if (this.audioStreamEndTimer) {
+					clearTimeout(this.audioStreamEndTimer);
+					this.audioStreamEndTimer = null;
+				}
 			}
 
 			async handleSignal(signal) {
@@ -1735,10 +1839,12 @@
 				processor.connect(this.audioCtx.destination);
 				processor.onaudioprocess = (event) => this._handleAudioProcess(event);
 				this.processor = processor;
-				this._setStatus('active', 'Dinliyorum...');
+				this._syncMuteToTracks();
+				this._setStatus('active', this.micMuted ? 'Mikrofon susturuldu.' : 'Dinliyorum...');
 				void sendMobileDebugLog('recorder.started', {
 					contextRate: this.audioCtx.sampleRate,
-					targetRate: this.sampleRate
+					targetRate: this.sampleRate,
+					micMuted: this.micMuted
 				});
 			}
 
@@ -1759,7 +1865,7 @@
 			}
 
 			_handleAudioProcess(event) {
-				if (!this.requested || !this.sessionReady || this.channel?.readyState !== 'open') {
+				if (!this.requested || !this.sessionReady || this.micMuted || this.channel?.readyState !== 'open') {
 					return;
 				}
 				const input = event.inputBuffer.getChannelData(0);
@@ -1892,6 +1998,10 @@
 				if (!this.requested || this.channel?.readyState !== 'open') {
 					return;
 				}
+				if (this.micMuted) {
+					this._scheduleWatchdog();
+					return;
+				}
 				const now = Date.now();
 				const sinceAudio = this.lastAudioSentAt ? now - this.lastAudioSentAt : 0;
 				const sinceHost = this.lastHostEventAt ? now - this.lastHostEventAt : 0;
@@ -2000,6 +2110,7 @@
 
 			_clearTimers(options = {}) {
 				this._clearConnectTimer();
+				this._cancelAudioStreamEnd();
 				if (this.watchdogTimer) {
 					clearTimeout(this.watchdogTimer);
 					this.watchdogTimer = null;
@@ -2111,6 +2222,19 @@
 				if (mobileLiveBtn) {
 					mobileLiveBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
 				}
+				if (mobileLiveMuteBtn) {
+					mobileLiveMuteBtn.hidden = !active;
+					this._updateMuteButton();
+				}
+			}
+
+			_updateMuteButton() {
+				if (!mobileLiveMuteBtn) {
+					return;
+				}
+				mobileLiveMuteBtn.classList.toggle('live-muted', this.micMuted);
+				mobileLiveMuteBtn.setAttribute('aria-pressed', this.micMuted ? 'true' : 'false');
+				mobileLiveMuteBtn.title = this.micMuted ? 'Mikrofonu ac' : 'Mikrofonu sustur';
 			}
 
 			_setSpeaking(role, speaking) {
@@ -2798,6 +2922,9 @@
 			mobileLiveClient.toggle().catch(error => {
 				console.warn('[MobileLive] toggle failed:', error);
 			});
+		});
+		mobileLiveMuteBtn?.addEventListener('click', () => {
+			mobileLiveClient.toggleMicMute();
 		});
 
 		// Mode toggle

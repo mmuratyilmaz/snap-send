@@ -12,19 +12,20 @@
 
 		:root {
 			--container-padding: 12px;
-			--jumper-primary: #007acc;
-			--jumper-secondary: #2b3a50;
-			--jumper-accent: #0c7b93;
-			--surface-0: #1e1e1e;
+			--jumper-primary: #f4f4f4;
+			--jumper-primary-contrast: #101010;
+			--jumper-secondary: #202020;
+			--jumper-accent: #f47c20;
+			--surface-0: #101010;
 			--surface-1: color-mix(in srgb, var(--surface-0) 88%, #ffffff 12%);
 			--surface-2: color-mix(in srgb, var(--surface-0) 94%, #000000 6%);
 			--surface-card: color-mix(in srgb, var(--surface-0) 92%, #ffffff 8%);
 			--surface-card-strong: color-mix(in srgb, var(--surface-0) 78%, #ffffff 22%);
-			--surface-border: rgba(255, 255, 255, 0.12);
-			--text-primary: #e0e0e0;
+			--surface-border: color-mix(in srgb, #ffffff 12%, transparent);
+			--text-primary: #f2f2f2;
 			--text-muted: #9a9a9a;
 			--success-color: #10b981;
-			--warning-color: #3794ff;
+			--warning-color: #f47c20;
 			--error-color: #ef4444;
 			--user-bubble-max-width: min(78%, 520px);
 			--vscode-editor-background: var(--surface-0);
@@ -66,7 +67,7 @@
 
 		/* Header */
 		.header {
-			background: var(--surface-1);
+			background: var(--surface-0);
 			padding: 12px 16px;
 			border-bottom: 1px solid var(--surface-border);
 			display: flex;
@@ -92,6 +93,7 @@
 		.header-title {
 			font-weight: 600;
 			font-size: 16px;
+			letter-spacing: 0.01em;
 		}
 
 		.header-status {
@@ -122,6 +124,7 @@
 			display: flex;
 			flex-direction: column;
 			gap: 8px;
+			background: var(--surface-0);
 		}
 
 		/* Message Bubbles */
@@ -149,7 +152,7 @@
 		.user-message {
 			align-self: flex-end;
 			margin-left: auto;
-			background: var(--surface-1);
+			background: var(--surface-card);
 			border: 1px solid var(--surface-border);
 			border-radius: 12px;
 			padding: 10px 14px;
@@ -212,12 +215,12 @@
 		}
 
 		.bot-message strong {
-			color: color-mix(in srgb, var(--jumper-primary) 60%, var(--vscode-foreground) 40%);
+			color: color-mix(in srgb, var(--jumper-primary) 78%, var(--vscode-foreground) 22%);
 			font-weight: 600;
 		}
 
 		.bot-message em {
-			color: color-mix(in srgb, var(--jumper-primary) 45%, var(--vscode-foreground) 55%);
+			color: color-mix(in srgb, var(--jumper-primary) 54%, var(--vscode-foreground) 46%);
 		}
 
 		pre {
@@ -287,7 +290,7 @@
 
 		.nexmaker-narrative.has-text .nexmaker-section {
 			padding-left: 14px;
-			border-left: 2px solid color-mix(in srgb, var(--jumper-primary) 32%, transparent 68%);
+			border-left: 2px solid color-mix(in srgb, var(--jumper-accent) 38%, transparent 62%);
 		}
 
 		.nexmaker-narrative.has-text .nexmaker-section + .nexmaker-section {
@@ -299,7 +302,7 @@
 			font-size: 1rem;
 			letter-spacing: 0.01em;
 			opacity: 0.95;
-			color: color-mix(in srgb, var(--jumper-primary) 75%, var(--vscode-foreground) 25%);
+			color: color-mix(in srgb, var(--jumper-accent) 78%, var(--vscode-foreground) 22%);
 		}
 
 		.nexmaker-section p {
@@ -342,7 +345,7 @@
 			left: 0;
 			top: 0.4em;
 			transform: translateY(-50%);
-			color: color-mix(in srgb, var(--jumper-primary) 70%, #ffffff 30%);
+			color: color-mix(in srgb, var(--jumper-accent) 70%, #ffffff 30%);
 			font-weight: 700;
 			font-size: 0.95rem;
 		}
@@ -359,14 +362,14 @@
 			content: counter(narrative-ordered) ".";
 			font-size: 0.9rem;
 			font-weight: 600;
-			color: color-mix(in srgb, var(--jumper-primary) 85%, #ffffff 15%);
+			color: color-mix(in srgb, var(--jumper-accent) 85%, #ffffff 15%);
 		}
 
 		.nexmaker-narrative.has-text .nexmaker-flow-quote {
 			margin: 0;
 			padding: 12px 16px;
-			border-left: 3px solid color-mix(in srgb, var(--jumper-primary) 45%, transparent 55%);
-			background: color-mix(in srgb, var(--surface-1) 78%, var(--jumper-primary) 22%);
+			border-left: 3px solid color-mix(in srgb, var(--jumper-accent) 45%, transparent 55%);
+			background: color-mix(in srgb, var(--surface-1) 88%, var(--jumper-accent) 12%);
 			border-radius: 12px;
 		}
 
@@ -389,8 +392,8 @@
 		}
 
 		.nexmaker-narrative.has-text .nexmaker-callout.tone-info {
-			border-color: color-mix(in srgb, var(--jumper-primary) 46%, var(--surface-border) 54%);
-			background: color-mix(in srgb, var(--jumper-primary) 14%, var(--surface-1) 86%);
+			border-color: color-mix(in srgb, var(--jumper-accent) 42%, var(--surface-border) 58%);
+			background: color-mix(in srgb, var(--jumper-accent) 10%, var(--surface-1) 90%);
 		}
 
 		.nexmaker-narrative.has-text .nexmaker-callout.tone-success {
@@ -424,7 +427,7 @@
 		}
 
 		.nexmaker-inline-link {
-			color: color-mix(in srgb, var(--jumper-primary) 65%, #ffffff 35%);
+			color: color-mix(in srgb, var(--jumper-accent) 68%, #ffffff 32%);
 			text-decoration: none;
 			font-weight: 500;
 		}
@@ -440,7 +443,7 @@
 			justify-content: center;
 			max-width: 100%;
 			background: var(--jumper-primary);
-			color: #fff;
+			color: var(--jumper-primary-contrast);
 			border: 1px solid color-mix(in srgb, var(--jumper-primary) 65%, var(--surface-border) 35%);
 			border-radius: 8px;
 			padding: 6px 10px;
@@ -462,7 +465,7 @@
 		}
 
 		.nexmaker-narrative strong {
-			color: color-mix(in srgb, var(--jumper-primary) 60%, var(--vscode-foreground) 40%);
+			color: color-mix(in srgb, var(--jumper-accent) 66%, var(--vscode-foreground) 34%);
 		}
 
 		/* NexMaker Cart Card */
@@ -500,7 +503,7 @@
 			border-radius: 12px;
 			overflow: hidden;
 			flex-shrink: 0;
-			background: rgba(12, 123, 147, 0.18);
+			background: color-mix(in srgb, var(--surface-0) 70%, #ffffff 30%);
 		}
 
 		.nexmaker-card-media img {
@@ -541,7 +544,7 @@
 			align-items: center;
 			justify-content: center;
 			background: var(--jumper-primary);
-			color: #fff;
+			color: var(--jumper-primary-contrast);
 			border: 1px solid color-mix(in srgb, var(--jumper-primary) 65%, var(--surface-border) 35%);
 			border-radius: 12px;
 			padding: 10px 18px;
@@ -553,7 +556,7 @@
 		}
 
 		.nexmaker-cart-button:hover {
-			background: color-mix(in srgb, var(--jumper-primary) 82%, #ffffff 18%);
+			background: color-mix(in srgb, var(--jumper-primary) 84%, #000000 16%);
 			border-color: color-mix(in srgb, var(--jumper-primary) 80%, var(--surface-border) 20%);
 			transform: translateY(-1px);
 			box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
@@ -629,17 +632,17 @@
 
 		.nexmaker-chip.info {
 			background: var(--jumper-primary);
-			color: white;
+			color: var(--jumper-primary-contrast);
 		}
 
 		.nexmaker-chip.warning {
 			background: var(--warning-color);
-			color: #fff;
+			color: #101010;
 		}
 
 		.nexmaker-chip.accent {
-			background: rgba(139, 92, 246, 0.24);
-			color: rgba(196, 181, 253, 0.95);
+			background: color-mix(in srgb, var(--jumper-accent) 18%, transparent);
+			color: color-mix(in srgb, var(--jumper-accent) 76%, #ffffff 24%);
 		}
 
 		.cart-summary-chevron {
@@ -803,8 +806,10 @@
 		}
 
 		.input-area.live-speaking-assistant {
-			border-color: rgba(0, 122, 204, 0.8);
-			box-shadow: 0 -10px 28px rgba(0, 122, 204, 0.24), inset 0 1px 0 rgba(0, 122, 204, 0.24);
+			border-color: color-mix(in srgb, #ffffff 70%, var(--surface-border));
+			box-shadow:
+				0 -10px 28px color-mix(in srgb, #ffffff 16%, transparent),
+				inset 0 1px 0 color-mix(in srgb, #ffffff 22%, transparent);
 		}
 
 		.mobile-live-status {
@@ -876,10 +881,10 @@
 			right: 4px;
 			width: 20px;
 			height: 20px;
-			background: rgba(0, 0, 0, 0.7);
-			border: none;
+			background: var(--jumper-primary);
+			border: 1px solid color-mix(in srgb, #000000 12%, transparent);
 			border-radius: 50%;
-			color: white;
+			color: var(--jumper-primary-contrast);
 			font-size: 14px;
 			cursor: pointer;
 			display: flex;
@@ -903,7 +908,7 @@
 			height: 40px;
 			border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
 			border-radius: 50%;
-			background: rgba(255, 255, 255, 0.05);
+			background: color-mix(in srgb, var(--surface-0) 88%, #ffffff 12%);
 			color: var(--text-primary);
 			font-size: 18px;
 			cursor: pointer;
@@ -918,7 +923,7 @@
 		}
 
 		.action-btn:hover {
-			background: var(--surface-card);
+			background: color-mix(in srgb, var(--surface-0) 78%, #ffffff 22%);
 		}
 
 		.action-btn.live-active {
@@ -953,7 +958,7 @@
 
 		.message-input-wrapper {
 			flex: 1;
-			background: var(--surface-card);
+			background: color-mix(in srgb, var(--surface-0) 88%, #ffffff 12%);
 			border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
 			border-radius: 16px;
 			padding: 8px 14px;
@@ -961,7 +966,7 @@
 			align-items: flex-end;
 			gap: 8px;
 			min-width: 0;
-			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+			box-shadow: none;
 		}
 
 		.message-input {
@@ -988,10 +993,10 @@
 		.send-btn {
 			width: 40px;
 			height: 40px;
-			border: none;
+			border: 1px solid color-mix(in srgb, #ffffff 74%, transparent);
 			border-radius: 50%;
 			background: var(--jumper-primary);
-			color: white;
+			color: var(--jumper-primary-contrast);
 			font-size: 18px;
 			cursor: pointer;
 			display: flex;
@@ -1002,7 +1007,7 @@
 		}
 
 		.send-btn:hover {
-			background: color-mix(in srgb, var(--jumper-primary) 82%, #ffffff 18%);
+			background: color-mix(in srgb, var(--jumper-primary) 84%, #000000 16%);
 		}
 
 		.send-btn:active {
@@ -1011,6 +1016,8 @@
 
 		.send-btn:disabled {
 			background: var(--surface-2);
+			border-color: var(--surface-border);
+			color: var(--text-muted);
 			cursor: not-allowed;
 		}
 
@@ -1043,30 +1050,30 @@
 
 		.mode-toggle-switch {
 			display: flex;
-			background: var(--surface-2);
+			background: color-mix(in srgb, var(--surface-0) 86%, #ffffff 14%);
 			border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
 			border-radius: 20px;
 			padding: 2px;
 		}
 
-	.mode-option {
-		height: 28px;
-		padding: 0 10px;
-		border-radius: 18px;
-		border: none;
-		background: transparent;
-		color: var(--text-muted);
-		font-size: 11px;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		transition: all 0.2s;
-	}
+		.mode-option {
+			height: 28px;
+			padding: 0 10px;
+			border-radius: 18px;
+			border: none;
+			background: transparent;
+			color: var(--text-muted);
+			font-size: 11px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			transition: all 0.2s;
+		}
 
-	.mode-option.active {
-		background: color-mix(in srgb, var(--jumper-primary) 75%, #ffffff 25%);
-		color: white;
-	}
+		.mode-option.active {
+			background: var(--jumper-primary);
+			color: var(--jumper-primary-contrast);
+		}
 
 	.mode-toggle-actions .action-btn {
 		width: 28px;
@@ -1119,6 +1126,9 @@
 
 		.connection-status h2 {
 			margin-bottom: 10px;
+			color: var(--text-primary);
+			font-size: 18px;
+			font-weight: 600;
 		}
 
 		/* Empty State */
@@ -1148,8 +1158,12 @@
 		}
 
 		::-webkit-scrollbar-thumb {
-			background: var(--surface-border);
+			background: color-mix(in srgb, #ffffff 24%, transparent);
 			border-radius: 2px;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: color-mix(in srgb, #ffffff 34%, transparent);
 		}
 	</style>
 </head>

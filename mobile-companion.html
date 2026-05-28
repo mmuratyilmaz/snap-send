@@ -1285,6 +1285,13 @@
 		let messageSequence = 0;
 		let mobileDebugSequence = 0;
 		const MOBILE_LIVE_DEBUG_LOGS_ENABLED = false;
+		const RESPONSE_POLL_INTERVAL_MS = 3000;
+		const RESPONSE_POLL_BURST_DELAYS_MS = [
+			250, 750, 1250, 2000, 3000, 4500, 6500, 9000,
+			12000, 16000, 21000, 27000, 34000, 42000
+		];
+		let responsePollingInterval = null;
+		let responsePollInFlight = false;
 		let heartbeatInterval = null;
 
 		// DOM Elements
@@ -1326,13 +1333,21 @@
 		// GitHub API Functions
 		// ============================================
 		async function fetchFromGitHub(path, options = {}) {
-			const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+			const method = String(options.method || 'GET').toUpperCase();
+			const url = new URL(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`);
+			if (method === 'GET') {
+				url.searchParams.set('_', Date.now().toString());
+			}
 			const headers = {
 				'Authorization': `token ${githubToken}`,
 				'Accept': 'application/vnd.github.v3+json',
 				...options.headers
 			};
-			return fetch(url, { ...options, headers });
+			const fetchOptions = { ...options, headers };
+			if (method === 'GET') {
+				fetchOptions.cache = 'no-store';
+			}
+			return fetch(url.toString(), fetchOptions);
 		}
 
 		async function uploadToGitHub(path, content, message) {
@@ -2199,16 +2214,7 @@
 			}
 
 			_scheduleSignalPollBurst() {
-				const delays = [300, 900, 1800, 3200, 5000, 8000, 12000];
-				for (const delay of delays) {
-					setTimeout(() => {
-						if (this.requested && this.channel?.readyState !== 'open') {
-							checkForNewResponses().catch(error => {
-								void sendMobileDebugLog('live.signal.poll.failed', { error }, 'warn');
-							});
-						}
-					}, delay);
-				}
+				scheduleResponsePollBurst('live-signal', () => this.requested && this.channel?.readyState !== 'open');
 			}
 
 			async _sendSignal(signal) {
@@ -2567,12 +2573,39 @@
 		}
 
 		function startPolling() {
-			setInterval(async () => {
-				await checkForNewResponses();
-			}, 3000);
+			if (responsePollingInterval) {
+				clearInterval(responsePollingInterval);
+			}
+			responsePollingInterval = setInterval(() => {
+				void runResponsePoll('interval');
+			}, RESPONSE_POLL_INTERVAL_MS);
+			void runResponsePoll('start');
 		}
 
-		async function checkForNewResponses() {
+		function scheduleResponsePollBurst(reason = 'burst', shouldContinue = null) {
+			for (const delay of RESPONSE_POLL_BURST_DELAYS_MS) {
+				setTimeout(() => {
+					if (typeof shouldContinue === 'function' && !shouldContinue()) {
+						return;
+					}
+					void runResponsePoll(reason);
+				}, delay);
+			}
+		}
+
+		async function runResponsePoll(reason = 'manual') {
+			if (responsePollInFlight) {
+				return;
+			}
+			responsePollInFlight = true;
+			try {
+				await checkForNewResponses(reason);
+			} finally {
+				responsePollInFlight = false;
+			}
+		}
+
+		async function checkForNewResponses(reason = 'manual') {
 			try {
 				const response = await fetchFromGitHub(`sessions/${SESSION_ID}/responses`);
 				if (!response.ok) return;
@@ -2611,7 +2644,7 @@
 						const message = JSON.parse(decodedText);
 
 						if (message.type === 'live_signal') {
-							console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
+							console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq, 'poll=', reason);
 							await mobileLiveClient.handleSignal(message.signal);
 							processedResponseSequences.add(seq);
 							lastSyncSequence = Math.max(lastSyncSequence, seq);
@@ -2626,11 +2659,13 @@
 						console.warn('Message decode error:', decodeError);
 						// Fallback: eski yöntemle dene
 						try {
-							const respData = await fetch(file.download_url);
+							const rawUrl = new URL(file.download_url);
+							rawUrl.searchParams.set('_', Date.now().toString());
+							const respData = await fetch(rawUrl.toString(), { cache: 'no-store' });
 							if (respData.ok) {
 								const message = await respData.json();
 								if (message.type === 'live_signal') {
-									console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq);
+									console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq, 'poll=', reason);
 									await mobileLiveClient.handleSignal(message.signal);
 									processedResponseSequences.add(seq);
 									lastSyncSequence = Math.max(lastSyncSequence, seq);
@@ -2814,6 +2849,7 @@
 				);
 
 				if (success) {
+					scheduleResponsePollBurst('message-send');
 					// Clear input
 					messageInput.value = '';
 					messageInput.style.height = 'auto';

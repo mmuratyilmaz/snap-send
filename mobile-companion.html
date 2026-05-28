@@ -1284,6 +1284,7 @@
 		const processedResponseSequences = new Set();
 		let messageSequence = 0;
 		let mobileDebugSequence = 0;
+		const MOBILE_LIVE_DEBUG_LOGS_ENABLED = false;
 		let heartbeatInterval = null;
 
 		// DOM Elements
@@ -1393,8 +1394,15 @@
 			return String(value);
 		}
 
+		function isMobileLiveDebugEvent(event) {
+			return /^(live|webrtc|datachannel|recorder|host)\./.test(String(event || ''));
+		}
+
 		async function sendMobileDebugLog(event, details = {}, level = 'info') {
 			if (!githubToken || !SESSION_ID) {
+				return;
+			}
+			if (!MOBILE_LIVE_DEBUG_LOGS_ENABLED && isMobileLiveDebugEvent(event)) {
 				return;
 			}
 			const sequence = ++mobileDebugSequence;

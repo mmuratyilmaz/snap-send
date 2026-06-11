@@ -1165,6 +1165,399 @@
 		::-webkit-scrollbar-thumb:hover {
 			background: color-mix(in srgb, #ffffff 34%, transparent);
 		}
+
+		.workspace-main {
+			flex: 1 1 auto;
+			min-height: 0;
+			display: grid;
+			grid-template-rows: minmax(0, 1fr);
+			background: var(--surface-0);
+		}
+
+		.workspace-main[data-view="split"] {
+			grid-template-rows: minmax(180px, 44%) minmax(0, 56%);
+		}
+
+		.workspace-main[data-view="file"] {
+			grid-template-rows: minmax(0, 1fr);
+		}
+
+		.workspace-main[data-view="chat"] .file-pane,
+		.workspace-main[data-view="file"] .chat-container {
+			display: none;
+		}
+
+		.workspace-main[data-view="file"] + .input-area {
+			display: none;
+		}
+
+		.file-pane {
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+			background: var(--surface-2);
+			border-bottom: 1px solid var(--surface-border);
+		}
+
+		.file-toolbar {
+			min-height: 44px;
+			padding: 7px 10px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			border-bottom: 1px solid var(--surface-border);
+			background: var(--surface-1);
+		}
+
+		.file-title {
+			min-width: 0;
+			flex: 1;
+		}
+
+		.file-title strong,
+		.file-title span {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.file-title strong {
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.file-title span {
+			color: var(--text-muted);
+			font-size: 10px;
+		}
+
+		.workspace-button,
+		.file-action,
+		.bottom-nav button,
+		.header-file-button {
+			border: 1px solid var(--surface-border);
+			background: var(--surface-card);
+			color: var(--text-primary);
+			border-radius: 8px;
+			font: inherit;
+			cursor: pointer;
+		}
+
+		.header-file-button {
+			max-width: 130px;
+			padding: 5px 8px;
+			color: var(--text-muted);
+			font-size: 11px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.header-file-button.has-file {
+			border-color: color-mix(in srgb, var(--jumper-accent) 62%, var(--surface-border));
+			color: var(--jumper-accent);
+		}
+
+		.file-action {
+			padding: 6px 9px;
+			font-size: 11px;
+		}
+
+		.file-action.primary {
+			background: var(--jumper-primary);
+			color: var(--jumper-primary-contrast);
+			border-color: var(--jumper-primary);
+		}
+
+		.file-action.accent {
+			color: var(--jumper-accent);
+			border-color: color-mix(in srgb, var(--jumper-accent) 55%, var(--surface-border));
+		}
+
+		.file-action:disabled {
+			opacity: 0.42;
+			cursor: default;
+		}
+
+		.file-status {
+			display: none;
+			padding: 7px 10px;
+			border-bottom: 1px solid var(--surface-border);
+			color: var(--text-muted);
+			font-size: 11px;
+		}
+
+		.file-status.visible {
+			display: block;
+		}
+
+		.file-status.warning {
+			color: var(--jumper-accent);
+		}
+
+		.file-viewer {
+			position: relative;
+			flex: 1;
+			min-height: 0;
+			overflow: auto;
+		}
+
+		.file-empty {
+			height: 100%;
+			display: grid;
+			place-content: center;
+			padding: 24px;
+			color: var(--text-muted);
+			text-align: center;
+		}
+
+		.file-code,
+		.file-editor {
+			width: 100%;
+			min-height: 100%;
+			margin: 0;
+			padding: 14px;
+			border: 0;
+			outline: 0;
+			resize: none;
+			background: var(--surface-2);
+			color: var(--text-primary);
+			font-family: var(--vscode-editor-font-family);
+			font-size: 12px;
+			line-height: 1.58;
+			white-space: pre;
+			tab-size: 4;
+		}
+
+		.file-pdf {
+			width: 100%;
+			height: 100%;
+			border: 0;
+			background: #ffffff;
+		}
+
+		.file-code[hidden],
+		.file-editor[hidden],
+		.file-pdf[hidden],
+		.file-empty[hidden] {
+			display: none;
+		}
+
+		.bottom-nav {
+			flex: 0 0 auto;
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 6px;
+			padding: 7px var(--container-padding) max(7px, env(safe-area-inset-bottom));
+			border-top: 1px solid var(--surface-border);
+			background: var(--surface-0);
+			z-index: 130;
+		}
+
+		.bottom-nav button {
+			padding: 8px 5px;
+			color: var(--text-muted);
+			font-size: 11px;
+		}
+
+		.bottom-nav button.active {
+			color: var(--jumper-accent);
+			border-color: color-mix(in srgb, var(--jumper-accent) 60%, var(--surface-border));
+			background: color-mix(in srgb, var(--jumper-accent) 10%, var(--surface-card));
+		}
+
+		.workspace-drawer {
+			position: fixed;
+			inset: 0;
+			z-index: 1000;
+			display: flex;
+			flex-direction: column;
+			background: var(--surface-0);
+			transform: translateX(-102%);
+			transition: transform 180ms ease;
+		}
+
+		.workspace-drawer.open {
+			transform: translateX(0);
+		}
+
+		.drawer-header {
+			padding: 12px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			border-bottom: 1px solid var(--surface-border);
+		}
+
+		.drawer-title {
+			flex: 1;
+			min-width: 0;
+		}
+
+		.drawer-title strong,
+		.drawer-title span {
+			display: block;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.drawer-title span {
+			color: var(--text-muted);
+			font-size: 11px;
+		}
+
+		.workspace-search {
+			width: calc(100% - 24px);
+			margin: 10px 12px 4px;
+			padding: 10px 12px;
+			border: 1px solid var(--surface-border);
+			border-radius: 9px;
+			outline: 0;
+			background: var(--surface-2);
+			color: var(--text-primary);
+		}
+
+		.workspace-search:focus {
+			border-color: var(--jumper-accent);
+		}
+
+		.file-tree {
+			flex: 1;
+			overflow: auto;
+			padding: 8px 8px 24px;
+		}
+
+		.tree-folder,
+		.tree-file {
+			width: 100%;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px;
+			border: 0;
+			border-radius: 7px;
+			background: transparent;
+			color: var(--text-primary);
+			text-align: left;
+			font: inherit;
+		}
+
+		.tree-folder {
+			color: var(--text-muted);
+			font-size: 12px;
+			font-weight: 600;
+		}
+
+		.tree-file.active {
+			background: color-mix(in srgb, var(--jumper-accent) 12%, transparent);
+			color: var(--jumper-accent);
+		}
+
+		.tree-file small {
+			margin-left: auto;
+			color: var(--text-muted);
+			font-size: 9px;
+		}
+
+		.tree-children {
+			padding-left: 14px;
+		}
+
+		.reference-preview-bar {
+			display: flex;
+			gap: 6px;
+			overflow-x: auto;
+			margin-bottom: 7px;
+		}
+
+		.reference-chip,
+		.message-reference {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			max-width: 220px;
+			padding: 4px 7px;
+			border: 1px solid color-mix(in srgb, var(--jumper-accent) 48%, var(--surface-border));
+			border-radius: 999px;
+			background: color-mix(in srgb, var(--jumper-accent) 9%, var(--surface-card));
+			color: var(--jumper-accent);
+			font-size: 10px;
+			white-space: nowrap;
+		}
+
+		.reference-chip button {
+			border: 0;
+			background: transparent;
+			color: inherit;
+		}
+
+		.message-references {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 5px;
+			margin-bottom: 7px;
+		}
+
+		.message-reference {
+			cursor: pointer;
+		}
+
+		.composer-suggestions {
+			display: none;
+			max-height: min(42vh, 300px);
+			overflow: auto;
+			margin-bottom: 8px;
+			padding: 6px;
+			border: 1px solid var(--surface-border);
+			border-radius: 10px;
+			background: var(--surface-1);
+			box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.35);
+		}
+
+		.composer-suggestions.open {
+			display: block;
+		}
+
+		.suggestion-item {
+			width: 100%;
+			padding: 9px;
+			border: 0;
+			border-radius: 7px;
+			background: transparent;
+			color: var(--text-primary);
+			text-align: left;
+		}
+
+		.suggestion-item:active {
+			background: color-mix(in srgb, var(--jumper-accent) 12%, transparent);
+		}
+
+		.suggestion-item small {
+			display: block;
+			color: var(--text-muted);
+			font-size: 10px;
+		}
+
+		.header-actions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			min-width: 0;
+		}
+
+		@media (min-width: 760px) {
+			.workspace-main[data-view="split"] {
+				grid-template-columns: minmax(280px, 44%) minmax(0, 56%);
+				grid-template-rows: minmax(0, 1fr);
+			}
+
+			.file-pane {
+				border-right: 1px solid var(--surface-border);
+				border-bottom: 0;
+			}
+		}
 	</style>
 </head>
 
@@ -1178,19 +1571,42 @@
 			</svg>
 			<span class="header-title">Jumper Chat</span>
 		</div>
-		<div class="header-status">
-			<span class="status-dot" id="status-dot"></span>
-			<span id="status-text">Bağlanıyor...</span>
+		<div class="header-actions">
+			<button class="header-file-button" id="header-file-button" type="button">Dosyalar</button>
+			<div class="header-status">
+				<span class="status-dot" id="status-dot"></span>
+				<span id="status-text">Bağlanıyor...</span>
+			</div>
 		</div>
 	</header>
 
-	<!-- Chat Container -->
-	<div class="chat-container" id="chat-container">
-		<div class="connection-status" id="connection-status">
-			<h2>Bağlantı Bekleniyor</h2>
-			<p>Jumper Hub ile bağlantı kuruluyor...</p>
+	<main class="workspace-main" id="workspace-main" data-view="chat">
+		<section class="file-pane" id="file-pane" aria-label="Dosya görünümü">
+			<div class="file-toolbar">
+				<div class="file-title">
+					<strong id="file-name">Dosya seçilmedi</strong>
+					<span id="file-path">Filtrelenmiş proje dosyalarından birini açın</span>
+				</div>
+				<button class="file-action accent" id="file-reference-btn" type="button" disabled>@ Ekle</button>
+				<button class="file-action" id="file-edit-btn" type="button" disabled>Düzenle</button>
+				<button class="file-action primary" id="file-save-btn" type="button" hidden>PC'ye Uygula</button>
+			</div>
+			<div class="file-status" id="file-status"></div>
+			<div class="file-viewer" id="file-viewer">
+				<div class="file-empty" id="file-empty">Mobil dosya görünümü hazır. Dosya ağacından bir dosya seçin.</div>
+				<pre class="file-code" id="file-code" hidden></pre>
+				<textarea class="file-editor" id="file-editor" spellcheck="false" hidden></textarea>
+				<iframe class="file-pdf" id="file-pdf" title="PDF görünümü" hidden></iframe>
+			</div>
+		</section>
+
+		<div class="chat-container" id="chat-container">
+			<div class="connection-status" id="connection-status">
+				<h2>Bağlantı Bekleniyor</h2>
+				<p>Jumper Hub ile bağlantı kuruluyor...</p>
+			</div>
 		</div>
-	</div>
+	</main>
 
 	<!-- Input Area -->
 	<div class="input-area">
@@ -1235,6 +1651,8 @@
 
 		<!-- Attachment Preview Bar -->
 		<div class="attachment-preview-bar" id="attachment-preview-bar"></div>
+		<div class="reference-preview-bar" id="reference-preview-bar"></div>
+		<div class="composer-suggestions" id="composer-suggestions"></div>
 
 		<!-- Input Row -->
 		<div class="input-row">
@@ -1249,6 +1667,25 @@
 			</button>
 		</div>
 	</div>
+
+	<nav class="bottom-nav" aria-label="Mobil çalışma alanı">
+		<button type="button" class="active" data-view-mode="chat">Sohbet</button>
+		<button type="button" id="open-files-btn">Dosyalar</button>
+		<button type="button" data-view-mode="file">Aktif Dosya</button>
+	</nav>
+
+	<aside class="workspace-drawer" id="workspace-drawer" aria-label="Proje dosyaları">
+		<div class="drawer-header">
+			<div class="drawer-title">
+				<strong id="workspace-root-name">Proje Dosyaları</strong>
+				<span>Kod ve doküman odaklı filtrelenmiş görünüm</span>
+			</div>
+			<button class="file-action" id="refresh-files-btn" type="button">Yenile</button>
+			<button class="file-action primary" id="close-files-btn" type="button">Kapat</button>
+		</div>
+		<input class="workspace-search" id="workspace-search" type="search" placeholder="Dosya ara...">
+		<div class="file-tree" id="file-tree"></div>
+	</aside>
 
 	<!-- Hidden File Inputs -->
 	<input type="file" class="hidden-input" id="camera-input" accept="image/*" capture="environment">
@@ -1284,6 +1721,13 @@
 		const processedResponseSequences = new Set();
 		let messageSequence = 0;
 		let mobileDebugSequence = 0;
+		let workspaceFiles = [];
+		let workspaceRootName = '';
+		let activeFile = null;
+		let openFileState = null;
+		let selectedReferences = [];
+		let currentViewMode = 'chat';
+		let pdfObjectUrl = null;
 		const MOBILE_LIVE_DEBUG_LOGS_ENABLED = false;
 		const RESPONSE_POLL_INTERVAL_MS = 3000;
 		const RESPONSE_POLL_BURST_DELAYS_MS = [
@@ -1310,6 +1754,24 @@
 		const mobileLiveMuteBtn = document.getElementById('mobile-live-mute-btn');
 		const mobileLiveStatus = document.getElementById('mobile-live-status');
 		const mobileLiveStatusText = document.getElementById('mobile-live-status-text');
+		const workspaceMain = document.getElementById('workspace-main');
+		const workspaceDrawer = document.getElementById('workspace-drawer');
+		const workspaceSearch = document.getElementById('workspace-search');
+		const workspaceRootNameEl = document.getElementById('workspace-root-name');
+		const fileTree = document.getElementById('file-tree');
+		const headerFileButton = document.getElementById('header-file-button');
+		const fileName = document.getElementById('file-name');
+		const filePath = document.getElementById('file-path');
+		const fileStatus = document.getElementById('file-status');
+		const fileEmpty = document.getElementById('file-empty');
+		const fileCode = document.getElementById('file-code');
+		const fileEditor = document.getElementById('file-editor');
+		const filePdf = document.getElementById('file-pdf');
+		const fileEditBtn = document.getElementById('file-edit-btn');
+		const fileSaveBtn = document.getElementById('file-save-btn');
+		const fileReferenceBtn = document.getElementById('file-reference-btn');
+		const referencePreviewBar = document.getElementById('reference-preview-bar');
+		const composerSuggestions = document.getElementById('composer-suggestions');
 
 		// ============================================
 		// XOR Decryption
@@ -1372,6 +1834,343 @@
 			}
 
 			return response.ok;
+		}
+
+		async function sendWorkspaceEvent(kind, payload = {}, requestId = null) {
+			if (!githubToken || !SESSION_ID) return false;
+			const sequence = ++messageSequence;
+			const id = `workspace-${Date.now()}-${sequence}`;
+			const event = {
+				id,
+				type: 'workspace_event',
+				role: 'user',
+				content: '',
+				mode: 'add',
+				workspaceEvent: { kind, payload, requestId: requestId || id },
+				timestamp: Date.now(),
+				sequence
+			};
+			const success = await uploadToGitHub(
+				`sessions/${SESSION_ID}/messages/${id}.json`,
+				event,
+				`Mobile workspace ${kind}`
+			);
+			if (success) {
+				scheduleResponsePollBurst(`workspace-${kind}`);
+			}
+			return success;
+		}
+
+		function setViewMode(mode) {
+			const safeMode = ['chat', 'split', 'file'].includes(mode) ? mode : 'chat';
+			currentViewMode = safeMode;
+			workspaceMain.dataset.view = safeMode;
+			document.querySelectorAll('[data-view-mode]').forEach(button => {
+				button.classList.toggle('active', button.dataset.viewMode === safeMode);
+			});
+			if (safeMode !== 'file') {
+				setTimeout(scrollToBottom, 0);
+			}
+		}
+
+		function setFileStatus(message = '', kind = '') {
+			fileStatus.textContent = message;
+			fileStatus.className = `file-status${message ? ' visible' : ''}${kind ? ` ${kind}` : ''}`;
+		}
+
+		function setWorkspaceDrawer(open) {
+			workspaceDrawer.classList.toggle('open', open);
+			if (open) {
+				workspaceSearch.focus();
+			}
+		}
+
+		function formatFileSize(bytes) {
+			if (!Number.isFinite(bytes) || bytes < 1024) return `${bytes || 0} B`;
+			if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+			return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		}
+
+		function renderFileTree() {
+			fileTree.innerHTML = '';
+			const query = workspaceSearch.value.trim().toLocaleLowerCase('tr');
+			const files = workspaceFiles.filter(file =>
+				!query || file.relativePath.toLocaleLowerCase('tr').includes(query)
+			);
+			if (files.length === 0) {
+				const empty = document.createElement('div');
+				empty.className = 'file-empty';
+				empty.style.height = 'auto';
+				empty.textContent = query ? 'Aramayla eşleşen dosya yok.' : 'Mobil erişime açık dosya bulunamadı.';
+				fileTree.appendChild(empty);
+				return;
+			}
+			const tree = {};
+			for (const file of files) {
+				let node = tree;
+				const parts = file.relativePath.split('/');
+				parts.forEach((part, index) => {
+					if (index === parts.length - 1) {
+						node.__files = node.__files || [];
+						node.__files.push(file);
+					} else {
+						node[part] = node[part] || {};
+						node = node[part];
+					}
+				});
+			}
+			renderTreeNode(tree, fileTree, query.length > 0);
+		}
+
+		function renderTreeNode(node, container, forceOpen = false) {
+			const folders = Object.keys(node).filter(key => key !== '__files').sort();
+			for (const folderName of folders) {
+				const details = document.createElement('details');
+				details.open = forceOpen;
+				const summary = document.createElement('summary');
+				summary.className = 'tree-folder';
+				summary.textContent = folderName;
+				const children = document.createElement('div');
+				children.className = 'tree-children';
+				renderTreeNode(node[folderName], children, forceOpen);
+				details.append(summary, children);
+				container.appendChild(details);
+			}
+			for (const file of node.__files || []) {
+				const button = document.createElement('button');
+				button.type = 'button';
+				button.className = `tree-file${openFileState?.file?.relativePath === file.relativePath ? ' active' : ''}`;
+				button.dataset.relativePath = file.relativePath;
+				const name = document.createElement('span');
+				name.textContent = file.name;
+				const size = document.createElement('small');
+				size.textContent = file.kind === 'pdf' ? 'PDF' : formatFileSize(file.size);
+				button.append(name, size);
+				button.addEventListener('click', () => openWorkspaceFile(file.relativePath));
+				container.appendChild(button);
+			}
+		}
+
+		async function openWorkspaceFile(relativePath) {
+			if (!relativePath) return;
+			setWorkspaceDrawer(false);
+			setFileStatus('PC tarafında dosya açılıyor...');
+			if (currentViewMode === 'chat') {
+				setViewMode('split');
+			}
+			await sendWorkspaceEvent('file.open', { relativePath });
+		}
+
+		function updateActiveFile(file, source = 'pc') {
+			activeFile = file || null;
+			headerFileButton.textContent = file?.name || 'Dosyalar';
+			headerFileButton.classList.toggle('has-file', !!file);
+			if (!file) return;
+			if (openFileState?.file?.relativePath && openFileState.file.relativePath !== file.relativePath && source === 'pc') {
+				setFileStatus(`PC tarafında farklı bir dosya açıldı: ${file.name}`, 'warning');
+			}
+		}
+
+		function hideFileSurfaces() {
+			fileEmpty.hidden = true;
+			fileCode.hidden = true;
+			fileEditor.hidden = true;
+			filePdf.hidden = true;
+		}
+
+		function renderFileContent(payload) {
+			if (!payload?.file) return;
+			if (
+				openFileState?.editing &&
+				openFileState.file.relativePath === payload.file.relativePath &&
+				openFileState.revision !== payload.revision
+			) {
+				openFileState.pcChanged = true;
+				setFileStatus('PC tarafında bu dosya değişti. Mobil taslağı uygulamaya çalışırsanız çakışma kontrolü yapılacak.', 'warning');
+				return;
+			}
+			if (pdfObjectUrl) {
+				URL.revokeObjectURL(pdfObjectUrl);
+				pdfObjectUrl = null;
+			}
+			openFileState = {
+				file: payload.file,
+				content: payload.content || '',
+				revision: payload.revision || '',
+				dirty: payload.dirty === true,
+				editing: false,
+				unavailableReason: payload.unavailableReason || ''
+			};
+			updateActiveFile(payload.file, 'pc');
+			fileName.textContent = payload.file.name;
+			filePath.textContent = payload.file.relativePath;
+			fileReferenceBtn.disabled = false;
+			fileEditBtn.disabled = !payload.file.editable || !!payload.unavailableReason;
+			fileEditBtn.hidden = false;
+			fileSaveBtn.hidden = true;
+			hideFileSurfaces();
+			if (payload.unavailableReason) {
+				fileEmpty.hidden = false;
+				fileEmpty.textContent = payload.unavailableReason;
+				setFileStatus(payload.unavailableReason, 'warning');
+			} else if (payload.file.kind === 'pdf') {
+				const binary = atob(payload.content || '');
+				const bytes = new Uint8Array(binary.length);
+				for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+				pdfObjectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+				filePdf.src = pdfObjectUrl;
+				filePdf.hidden = false;
+				setFileStatus('PDF salt okunur modda açık.');
+			} else {
+				fileCode.textContent = payload.content || '';
+				fileCode.hidden = false;
+				setFileStatus(payload.dirty ? 'PC tarafında kaydedilmemiş değişiklik var. Mobil görünüm güncel içeriği gösteriyor.' : '');
+			}
+			renderFileTree();
+		}
+
+		function beginFileEdit() {
+			if (!openFileState?.file?.editable) return;
+			openFileState.editing = true;
+			fileEditor.value = openFileState.content;
+			hideFileSurfaces();
+			fileEditor.hidden = false;
+			fileEditBtn.hidden = true;
+			fileSaveBtn.hidden = false;
+			setFileStatus('Mobil düzenleme modu. PC değişirse uygulama reddedilir.', 'warning');
+			fileEditor.focus();
+		}
+
+		async function applyFileEdit() {
+			if (!openFileState?.editing) return;
+			fileSaveBtn.disabled = true;
+			setFileStatus('Değişiklik PC tarafında doğrulanıyor...');
+			await sendWorkspaceEvent('file.edit.apply', {
+				relativePath: openFileState.file.relativePath,
+				baseRevision: openFileState.revision,
+				content: fileEditor.value
+			});
+		}
+
+		function addFileReference(file) {
+			if (!file?.relativePath) return;
+			if (!selectedReferences.some(reference => reference.id === file.relativePath)) {
+				selectedReferences.push({
+					type: 'file',
+					id: file.relativePath,
+					name: file.name,
+					data: { relativePath: file.relativePath }
+				});
+			}
+			renderReferencePreview();
+			updateSendButton();
+		}
+
+		function renderReferencePreview() {
+			referencePreviewBar.innerHTML = '';
+			for (const reference of selectedReferences) {
+				const chip = document.createElement('span');
+				chip.className = 'reference-chip';
+				const label = document.createElement('span');
+				label.textContent = `@ ${reference.name}`;
+				const remove = document.createElement('button');
+				remove.type = 'button';
+				remove.textContent = '×';
+				remove.addEventListener('click', () => {
+					selectedReferences = selectedReferences.filter(item => item.id !== reference.id);
+					renderReferencePreview();
+					updateSendButton();
+				});
+				chip.append(label, remove);
+				referencePreviewBar.appendChild(chip);
+			}
+		}
+
+		function replaceComposerTrigger() {
+			messageInput.value = messageInput.value.replace(/(^|\s)[@/][^\s]*$/, '$1');
+			autoResizeInput();
+		}
+
+		function renderComposerSuggestions() {
+			const trigger = messageInput.value.match(/(^|\s)([@/])([^\s]*)$/);
+			composerSuggestions.innerHTML = '';
+			if (!trigger) {
+				composerSuggestions.classList.remove('open');
+				return;
+			}
+			const symbol = trigger[2];
+			const query = trigger[3].toLocaleLowerCase('tr');
+			const items = symbol === '@'
+				? workspaceFiles
+					.filter(file => !query || file.relativePath.toLocaleLowerCase('tr').includes(query))
+					.slice(0, 30)
+					.map(file => ({ label: file.name, detail: file.relativePath, action: () => addFileReference(file) }))
+				: [
+					{ label: '/dosyalar', detail: 'Filtrelenmiş proje dosyalarını aç', action: () => setWorkspaceDrawer(true) },
+					{ label: '/aktif', detail: 'PC tarafındaki aktif dosyayı göster', action: () => setViewMode('file') },
+					{ label: '/bölünmüş', detail: 'Dosya ve sohbeti birlikte göster', action: () => setViewMode('split') },
+					{ label: '/sohbet', detail: 'Sadece sohbet görünümüne dön', action: () => setViewMode('chat') }
+				].filter(item => !query || item.label.toLocaleLowerCase('tr').includes(query));
+			for (const item of items) {
+				const button = document.createElement('button');
+				button.type = 'button';
+				button.className = 'suggestion-item';
+				const label = document.createElement('span');
+				label.textContent = item.label;
+				const detail = document.createElement('small');
+				detail.textContent = item.detail;
+				button.append(label, detail);
+				button.addEventListener('click', () => {
+					replaceComposerTrigger();
+					item.action();
+					composerSuggestions.classList.remove('open');
+					messageInput.focus();
+				});
+				composerSuggestions.appendChild(button);
+			}
+			composerSuggestions.classList.toggle('open', items.length > 0);
+		}
+
+		async function handleWorkspaceEvent(event) {
+			if (!event?.kind) return;
+			const payload = event.payload || {};
+			switch (event.kind) {
+				case 'workspace.snapshot':
+					workspaceFiles = Array.isArray(payload.files) ? payload.files : [];
+					workspaceRootName = payload.rootName || 'Proje Dosyaları';
+					workspaceRootNameEl.textContent = workspaceRootName;
+					renderFileTree();
+					return;
+				case 'editor.active.changed':
+					updateActiveFile(payload.file, payload.source || 'pc');
+					return;
+				case 'file.content':
+					renderFileContent(payload);
+					return;
+				case 'file.edit.applied':
+					if (openFileState) {
+						openFileState.editing = false;
+					}
+					setFileStatus('Değişiklik PC tarafına uygulandı.');
+					fileSaveBtn.disabled = false;
+					return;
+				case 'file.edit.conflict':
+					if (openFileState) {
+						openFileState.editing = false;
+					}
+					setFileStatus(payload.message || 'PC tarafındaki değişiklik nedeniyle mobil düzenleme uygulanmadı.', 'warning');
+					fileSaveBtn.disabled = false;
+					return;
+				case 'file.edit.rejected':
+				setFileStatus(payload.message || 'Mobil düzenleme reddedildi.', 'warning');
+					fileSaveBtn.disabled = false;
+					return;
+				case 'file.error':
+					setFileStatus(payload.message || 'Dosya açılamadı.', 'warning');
+					return;
+				default:
+					return;
+			}
 		}
 
 		function simplifyForMobileLog(value, depth = 0) {
@@ -2469,6 +3268,7 @@
 
 				// Start polling for new responses
 				startPolling();
+				await sendWorkspaceEvent('workspace.request');
 
 			} catch (error) {
 				void sendMobileDebugLog('session.init.failed', { error }, 'error');
@@ -2651,6 +3451,13 @@
 							continue;
 						}
 
+						if (message.type === 'workspace_event') {
+							await handleWorkspaceEvent(message.workspaceEvent);
+							processedResponseSequences.add(seq);
+							lastSyncSequence = Math.max(lastSyncSequence, seq);
+							continue;
+						}
+
 						renderMessage(message);
 						processedResponseSequences.add(seq);
 						lastSyncSequence = Math.max(lastSyncSequence, seq);
@@ -2667,6 +3474,12 @@
 								if (message.type === 'live_signal') {
 									console.log('[MobileLive] signal response received:', message.signal?.kind, 'seq=', seq, 'poll=', reason);
 									await mobileLiveClient.handleSignal(message.signal);
+									processedResponseSequences.add(seq);
+									lastSyncSequence = Math.max(lastSyncSequence, seq);
+									continue;
+								}
+								if (message.type === 'workspace_event') {
+									await handleWorkspaceEvent(message.workspaceEvent);
 									processedResponseSequences.add(seq);
 									lastSyncSequence = Math.max(lastSyncSequence, seq);
 									continue;
@@ -2705,6 +3518,21 @@
 
 			const bubble = document.createElement('div');
 			bubble.className = 'message-bubble message-body';
+
+			if (Array.isArray(msg.references) && msg.references.length > 0) {
+				const referencesDiv = document.createElement('div');
+				referencesDiv.className = 'message-references';
+				for (const reference of msg.references) {
+					const refButton = document.createElement('button');
+					refButton.type = 'button';
+					refButton.className = 'message-reference';
+					refButton.textContent = `@ ${reference.name || reference.id}`;
+					const relativePath = reference.data?.relativePath || reference.id;
+					refButton.addEventListener('click', () => openWorkspaceFile(relativePath));
+					referencesDiv.appendChild(refButton);
+				}
+				bubble.appendChild(referencesDiv);
+			}
 
 			if (msg.role === 'user') {
 				// Attachments varsa önce onları göster
@@ -2796,7 +3624,7 @@
 		// ============================================
 		async function sendMessage() {
 			const text = messageInput.value.trim();
-			if (!text && pendingAttachments.length === 0) return;
+			if (!text && pendingAttachments.length === 0 && selectedReferences.length === 0) return;
 
 			// Disable send button
 			sendBtn.disabled = true;
@@ -2831,6 +3659,12 @@
 						downloadUrl: m.downloadUrl,
 						data: m.localData // local render için görsel verisi
 					})),
+					references: selectedReferences.map(reference => ({
+						type: reference.type,
+						id: reference.id,
+						name: reference.name,
+						data: reference.data
+					})),
 					mode: sendMode,
 					timestamp: Date.now(),
 					sequence: messageSequence
@@ -2854,6 +3688,8 @@
 					messageInput.value = '';
 					messageInput.style.height = 'auto';
 					clearAttachments();
+					selectedReferences = [];
+					renderReferencePreview();
 
 					// Render locally if in send mode - tam mesaj objesi ile render et
 					if (sendMode === 'send') {
@@ -3015,7 +3851,8 @@
 		function updateSendButton() {
 			const hasText = messageInput.value.trim().length > 0;
 			const hasAttachments = pendingAttachments.length > 0;
-			sendBtn.disabled = !isConnected || (!hasText && !hasAttachments);
+			const hasReferences = selectedReferences.length > 0;
+			sendBtn.disabled = !isConnected || (!hasText && !hasAttachments && !hasReferences);
 		}
 
 		function autoResizeInput() {
@@ -3029,6 +3866,7 @@
 		messageInput.addEventListener('input', () => {
 			autoResizeInput();
 			updateSendButton();
+			renderComposerSuggestions();
 		});
 
 		sendBtn.addEventListener('click', sendMessage);
@@ -3040,6 +3878,29 @@
 		mobileLiveMuteBtn?.addEventListener('click', () => {
 			mobileLiveClient.toggleMicMute();
 		});
+
+		headerFileButton.addEventListener('click', () => {
+			if (activeFile?.relativePath) {
+				openWorkspaceFile(activeFile.relativePath);
+			} else {
+				setWorkspaceDrawer(true);
+			}
+		});
+		document.getElementById('open-files-btn').addEventListener('click', () => setWorkspaceDrawer(true));
+		document.getElementById('close-files-btn').addEventListener('click', () => setWorkspaceDrawer(false));
+		document.getElementById('refresh-files-btn').addEventListener('click', () => sendWorkspaceEvent('workspace.request'));
+		workspaceSearch.addEventListener('input', renderFileTree);
+		document.querySelectorAll('[data-view-mode]').forEach(button => {
+			button.addEventListener('click', () => {
+				if (button.dataset.viewMode === 'file' && !openFileState && activeFile?.relativePath) {
+					void openWorkspaceFile(activeFile.relativePath);
+				}
+				setViewMode(button.dataset.viewMode);
+			});
+		});
+		fileEditBtn.addEventListener('click', beginFileEdit);
+		fileSaveBtn.addEventListener('click', applyFileEdit);
+		fileReferenceBtn.addEventListener('click', () => addFileReference(openFileState?.file));
 
 		// Mode toggle
 		document.querySelectorAll('.mode-option').forEach(btn => {

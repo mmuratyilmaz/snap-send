@@ -16,6 +16,7 @@
 			--jumper-primary-contrast: #101010;
 			--jumper-secondary: #202020;
 			--jumper-accent: #f47c20;
+			--workspace-accent: #f4f4f4;
 			--surface-0: #101010;
 			--surface-1: color-mix(in srgb, var(--surface-0) 88%, #ffffff 12%);
 			--surface-2: color-mix(in srgb, var(--surface-0) 94%, #000000 6%);
@@ -1168,10 +1169,14 @@
 
 		.workspace-main {
 			flex: 1 1 auto;
+			width: 100%;
+			max-width: 100%;
 			min-height: 0;
+			min-width: 0;
 			display: grid;
 			grid-template-rows: minmax(0, 1fr);
 			background: var(--surface-0);
+			overflow: hidden;
 		}
 
 		.workspace-main[data-view="split"] {
@@ -1192,21 +1197,30 @@
 		}
 
 		.file-pane {
+			width: 100%;
+			max-width: 100%;
 			min-height: 0;
+			min-width: 0;
 			display: flex;
 			flex-direction: column;
 			background: var(--surface-2);
 			border-bottom: 1px solid var(--surface-border);
+			overflow: hidden;
 		}
 
 		.file-toolbar {
+			width: 100%;
+			max-width: 100%;
 			min-height: 44px;
+			min-width: 0;
 			padding: 7px 10px;
 			display: flex;
 			align-items: center;
 			gap: 8px;
 			border-bottom: 1px solid var(--surface-border);
 			background: var(--surface-1);
+			flex-shrink: 0;
+			overflow: hidden;
 		}
 
 		.file-title {
@@ -1255,11 +1269,12 @@
 		}
 
 		.header-file-button.has-file {
-			border-color: color-mix(in srgb, var(--jumper-accent) 62%, var(--surface-border));
-			color: var(--jumper-accent);
+			border-color: color-mix(in srgb, var(--workspace-accent) 44%, var(--surface-border));
+			color: var(--workspace-accent);
 		}
 
 		.file-action {
+			flex-shrink: 0;
 			padding: 6px 9px;
 			font-size: 11px;
 		}
@@ -1271,8 +1286,8 @@
 		}
 
 		.file-action.accent {
-			color: var(--jumper-accent);
-			border-color: color-mix(in srgb, var(--jumper-accent) 55%, var(--surface-border));
+			color: var(--workspace-accent);
+			border-color: color-mix(in srgb, var(--workspace-accent) 38%, var(--surface-border));
 		}
 
 		.file-action:disabled {
@@ -1293,14 +1308,18 @@
 		}
 
 		.file-status.warning {
-			color: var(--jumper-accent);
+			color: var(--workspace-accent);
 		}
 
 		.file-viewer {
 			position: relative;
 			flex: 1;
+			width: 100%;
+			max-width: 100%;
 			min-height: 0;
+			min-width: 0;
 			overflow: auto;
+			overscroll-behavior: contain;
 		}
 
 		.file-empty {
@@ -1314,7 +1333,6 @@
 
 		.file-code,
 		.file-editor {
-			width: 100%;
 			min-height: 100%;
 			margin: 0;
 			padding: 14px;
@@ -1328,6 +1346,20 @@
 			line-height: 1.58;
 			white-space: pre;
 			tab-size: 4;
+		}
+
+		.file-code {
+			display: block;
+			width: max-content;
+			min-width: 100%;
+			max-width: none;
+		}
+
+		.file-editor {
+			display: block;
+			width: 100%;
+			max-width: 100%;
+			overflow: auto;
 		}
 
 		.file-pdf {
@@ -1362,9 +1394,9 @@
 		}
 
 		.bottom-nav button.active {
-			color: var(--jumper-accent);
-			border-color: color-mix(in srgb, var(--jumper-accent) 60%, var(--surface-border));
-			background: color-mix(in srgb, var(--jumper-accent) 10%, var(--surface-card));
+			color: var(--workspace-accent);
+			border-color: color-mix(in srgb, var(--workspace-accent) 40%, var(--surface-border));
+			background: color-mix(in srgb, var(--workspace-accent) 8%, var(--surface-card));
 		}
 
 		.workspace-drawer {
@@ -1420,7 +1452,7 @@
 		}
 
 		.workspace-search:focus {
-			border-color: var(--jumper-accent);
+			border-color: var(--workspace-accent);
 		}
 
 		.file-tree {
@@ -1451,8 +1483,8 @@
 		}
 
 		.tree-file.active {
-			background: color-mix(in srgb, var(--jumper-accent) 12%, transparent);
-			color: var(--jumper-accent);
+			background: color-mix(in srgb, var(--workspace-accent) 10%, transparent);
+			color: var(--workspace-accent);
 		}
 
 		.tree-file small {
@@ -1479,10 +1511,10 @@
 			gap: 5px;
 			max-width: 220px;
 			padding: 4px 7px;
-			border: 1px solid color-mix(in srgb, var(--jumper-accent) 48%, var(--surface-border));
+			border: 1px solid color-mix(in srgb, var(--workspace-accent) 38%, var(--surface-border));
 			border-radius: 999px;
-			background: color-mix(in srgb, var(--jumper-accent) 9%, var(--surface-card));
-			color: var(--jumper-accent);
+			background: color-mix(in srgb, var(--workspace-accent) 7%, var(--surface-card));
+			color: var(--workspace-accent);
 			font-size: 10px;
 			white-space: nowrap;
 		}
@@ -1531,7 +1563,7 @@
 		}
 
 		.suggestion-item:active {
-			background: color-mix(in srgb, var(--jumper-accent) 12%, transparent);
+			background: color-mix(in srgb, var(--workspace-accent) 10%, transparent);
 		}
 
 		.suggestion-item small {
@@ -2253,7 +2285,12 @@
 				this.channel = null;
 				this.stream = null;
 				this.audioCtx = null;
+				this.source = null;
 				this.processor = null;
+				this.micTrack = null;
+				this.recorderStartPromise = null;
+				this.recorderGeneration = 0;
+				this.recorderRecoveryTimer = null;
 				this.playbackCtx = null;
 				this.audioQueue = [];
 				this.playing = false;
@@ -2277,6 +2314,7 @@
 				this.micMuted = false;
 				this.audioStreamEndTimer = null;
 				this.readyChimeTimer = null;
+				this._bindRecorderLifecycleRecovery();
 			}
 
 			async toggle() {
@@ -2644,74 +2682,282 @@
 			}
 
 			async _startRecorder() {
-				if (!this.requested || !this.sessionReady || this.processor) {
+				if (!this.requested || !this.sessionReady) {
 					void sendMobileDebugLog('recorder.start.skipped', {
 						requested: this.requested,
 						sessionReady: this.sessionReady,
-						hasProcessor: !!this.processor
+						hasProcessor: !!this.processor,
+						reason: 'session-not-ready'
 					});
 					return;
 				}
+				if (this.recorderStartPromise) {
+					void sendMobileDebugLog('recorder.start.skipped', {
+						requested: this.requested,
+						sessionReady: this.sessionReady,
+						hasProcessor: !!this.processor,
+						reason: 'start-in-progress'
+					});
+					return this.recorderStartPromise;
+				}
+				const liveTrack = this.stream?.getAudioTracks?.().find(track => track.readyState === 'live');
+				if (this.processor && liveTrack && this.audioCtx && this.audioCtx.state !== 'closed') {
+					if (this.audioCtx.state === 'suspended') {
+						try {
+							await this.audioCtx.resume();
+						} catch {
+							this._scheduleRecorderRecovery('audio-context-resume-failed');
+						}
+					}
+					return;
+				}
+				const generation = ++this.recorderGeneration;
+				const startPromise = this._startRecorderGeneration(generation);
+				this.recorderStartPromise = startPromise;
+				try {
+					await startPromise;
+				} finally {
+					if (this.recorderStartPromise === startPromise) {
+						this.recorderStartPromise = null;
+					}
+				}
+			}
+
+			async _startRecorderGeneration(generation) {
 				const AudioCtx = window.AudioContext || window.webkitAudioContext;
 				if (!AudioCtx) {
 					throw new Error('Web Audio API desteklenmiyor.');
 				}
+				let stream = null;
+				let audioCtx = null;
+				let source = null;
+				let processor = null;
 				void sendMobileDebugLog('recorder.permission.request');
-				this.stream = await navigator.mediaDevices.getUserMedia({
-					audio: {
-						echoCancellation: true,
-						noiseSuppression: true,
-						autoGainControl: true,
-						channelCount: 1,
-						sampleRate: this.sampleRate
+				try {
+					stream = await navigator.mediaDevices.getUserMedia({
+						audio: {
+							echoCancellation: true,
+							noiseSuppression: true,
+							autoGainControl: true,
+							channelCount: 1,
+							sampleRate: this.sampleRate
+						}
+					});
+					if (!this._isRecorderGenerationCurrent(generation)) {
+						this._disposeRecorderResources({ stream });
+						return;
 					}
-				});
-				void sendMobileDebugLog('recorder.permission.granted', {
-					tracks: this.stream.getAudioTracks().map(track => ({
-						enabled: track.enabled,
-						readyState: track.readyState,
-						label: track.label
-					}))
-				});
-				this.audioCtx = new AudioCtx();
-				const source = this.audioCtx.createMediaStreamSource(this.stream);
-				const processor = this.audioCtx.createScriptProcessor(4096, 1, 1);
-				source.connect(processor);
-				processor.connect(this.audioCtx.destination);
-				processor.onaudioprocess = (event) => this._handleAudioProcess(event);
-				this.processor = processor;
-				this._syncMuteToTracks();
-				this._setStatus('active', this.micMuted ? 'Mikrofon susturuldu.' : 'Dinliyorum...');
-				this._setMuteButtonVisible(true);
-				if (!this.micMuted) {
-					void this._playReadyChime();
+					void sendMobileDebugLog('recorder.permission.granted', {
+						tracks: stream.getAudioTracks().map(track => ({
+							enabled: track.enabled,
+							readyState: track.readyState,
+							label: track.label
+						}))
+					});
+					audioCtx = new AudioCtx({ latencyHint: 'interactive' });
+					if (audioCtx.state === 'suspended') {
+						try {
+							await audioCtx.resume();
+						} catch { }
+					}
+					if (!this._isRecorderGenerationCurrent(generation)) {
+						this._disposeRecorderResources({ stream, audioCtx });
+						return;
+					}
+					source = audioCtx.createMediaStreamSource(stream);
+					processor = audioCtx.createScriptProcessor(4096, 1, 1);
+					processor.onaudioprocess = (event) => this._handleAudioProcess(event);
+
+					this.stream = stream;
+					this.audioCtx = audioCtx;
+					this.source = source;
+					this.processor = processor;
+					this.micTrack = stream.getAudioTracks()[0] || null;
+					this._bindRecorderResourceEvents(generation);
+					source.connect(processor);
+					processor.connect(audioCtx.destination);
+					this._syncMuteToTracks();
+					this._setStatus('active', this.micMuted ? 'Mikrofon susturuldu.' : 'Dinliyorum...');
+					this._setMuteButtonVisible(true);
+					if (!this.micMuted) {
+						void this._playReadyChime();
+					}
+					void sendMobileDebugLog('recorder.started', {
+						contextRate: audioCtx.sampleRate,
+						targetRate: this.sampleRate,
+						micMuted: this.micMuted,
+						generation
+					});
+				} catch (error) {
+					if (this.processor === processor) {
+						this.stream = null;
+						this.audioCtx = null;
+						this.source = null;
+						this.processor = null;
+						this.micTrack = null;
+					}
+					this._disposeRecorderResources({ stream, audioCtx, source, processor });
+					throw error;
 				}
-				void sendMobileDebugLog('recorder.started', {
-					contextRate: this.audioCtx.sampleRate,
-					targetRate: this.sampleRate,
-					micMuted: this.micMuted
-				});
 			}
 
 			_stopRecorder() {
+				this.recorderGeneration += 1;
+				this.recorderStartPromise = null;
+				if (this.recorderRecoveryTimer) {
+					clearTimeout(this.recorderRecoveryTimer);
+					this.recorderRecoveryTimer = null;
+				}
+				const resources = {
+					stream: this.stream,
+					audioCtx: this.audioCtx,
+					source: this.source,
+					processor: this.processor,
+					micTrack: this.micTrack
+				};
+				this.processor = null;
+				this.source = null;
+				this.stream = null;
+				this.audioCtx = null;
+				this.micTrack = null;
+				this._disposeRecorderResources(resources);
+				this._setMuteButtonVisible(false);
+			}
+
+			_disposeRecorderResources(resources = {}) {
 				try {
-					if (this.processor) {
-						this.processor.disconnect();
-						this.processor.onaudioprocess = null;
+					if (resources.micTrack) {
+						resources.micTrack.onended = null;
+						resources.micTrack.onmute = null;
+						resources.micTrack.onunmute = null;
 					}
 				} catch { }
 				try {
-					this.stream?.getTracks().forEach(track => track.stop());
+					if (resources.processor) {
+						resources.processor.onaudioprocess = null;
+						resources.processor.disconnect();
+					}
 				} catch { }
-				try { this.audioCtx?.close(); } catch { }
-				this.processor = null;
-				this.stream = null;
-				this.audioCtx = null;
-				this._setMuteButtonVisible(false);
+				try { resources.source?.disconnect(); } catch { }
+				try {
+					resources.stream?.getTracks?.().forEach(track => {
+						track.onended = null;
+						track.onmute = null;
+						track.onunmute = null;
+						track.stop();
+					});
+				} catch { }
+				try {
+					if (resources.audioCtx) {
+						resources.audioCtx.onstatechange = null;
+						void resources.audioCtx.close();
+					}
+				} catch { }
+			}
+
+			_isRecorderGenerationCurrent(generation) {
+				return (
+					generation === this.recorderGeneration &&
+					this.requested &&
+					this.sessionReady
+				);
+			}
+
+			_bindRecorderResourceEvents(generation) {
+				if (this.micTrack) {
+					this.micTrack.onended = () => this._scheduleRecorderRecovery('track-ended');
+					this.micTrack.onmute = () => {
+						if (!document.hidden) {
+							this._scheduleRecorderRecovery('track-muted', 1600);
+						}
+					};
+					this.micTrack.onunmute = () => {
+						void sendMobileDebugLog('recorder.track.unmuted', { generation });
+						void this._ensureRecorderHealthy('track-unmuted');
+					};
+				}
+				if (this.audioCtx) {
+					this.audioCtx.onstatechange = () => {
+						if (generation !== this.recorderGeneration || !this.requested || !this.sessionReady) {
+							return;
+						}
+						const state = this.audioCtx?.state || 'closed';
+						void sendMobileDebugLog('recorder.context.state', { generation, state });
+						if (state === 'closed') {
+							this._scheduleRecorderRecovery('audio-context-closed');
+						} else if (state === 'suspended' && !document.hidden) {
+							void this._ensureRecorderHealthy('audio-context-suspended');
+						}
+					};
+				}
+			}
+
+			_bindRecorderLifecycleRecovery() {
+				document.addEventListener('visibilitychange', () => {
+					if (!document.hidden) {
+						void this._ensureRecorderHealthy('page-visible');
+					}
+				});
+				window.addEventListener('pageshow', () => {
+					void this._ensureRecorderHealthy('page-show');
+				});
+				try {
+					navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+						void this._ensureRecorderHealthy('device-change');
+					});
+				} catch { }
+			}
+
+			async _ensureRecorderHealthy(reason) {
+				if (!this.requested || !this.sessionReady) {
+					return;
+				}
+				const track = this.stream?.getAudioTracks?.()[0];
+				if (
+					!this.processor ||
+					!track ||
+					track.readyState !== 'live' ||
+					track.muted ||
+					!this.audioCtx ||
+					this.audioCtx.state === 'closed'
+				) {
+					this._scheduleRecorderRecovery(reason);
+					return;
+				}
+				if (this.audioCtx.state === 'suspended') {
+					try {
+						await this.audioCtx.resume();
+					} catch {
+						this._scheduleRecorderRecovery(`${reason}-resume-failed`);
+					}
+				}
+			}
+
+			_scheduleRecorderRecovery(reason, delayMs = 450) {
+				if (!this.requested || !this.sessionReady || this.recorderRecoveryTimer) {
+					return;
+				}
+				void sendMobileDebugLog('recorder.recovery.scheduled', { reason, delayMs }, 'warn');
+				this.recorderRecoveryTimer = setTimeout(() => {
+					this.recorderRecoveryTimer = null;
+					if (!this.requested || !this.sessionReady) {
+						return;
+					}
+					this._stopRecorder();
+					this._startRecorder().catch(error => {
+						void sendMobileDebugLog('recorder.recovery.failed', { reason, error }, 'error');
+						this._setStatus('error', 'Mikrofon yeniden başlatılamadı.');
+					});
+				}, delayMs);
 			}
 
 			_handleAudioProcess(event) {
 				if (!this.requested || !this.sessionReady || this.micMuted || this.channel?.readyState !== 'open') {
+					return;
+				}
+				const track = this.stream?.getAudioTracks?.()[0];
+				if (!track || track.readyState !== 'live' || !this.audioCtx || this.audioCtx.state === 'closed') {
+					this._scheduleRecorderRecovery('audio-process-unhealthy');
 					return;
 				}
 				const input = event.inputBuffer.getChannelData(0);

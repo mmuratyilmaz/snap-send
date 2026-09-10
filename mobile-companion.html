@@ -1724,7 +1724,9 @@
 	<input type="file" class="hidden-input" id="gallery-input" accept="image/*" multiple>
 	<input type="file" class="hidden-input" id="video-input" accept="video/*" capture="environment">
 
+	<script src="./mobile-calibration.js?v=20260910-1"></script>
 	<script>
+		const calibrationOnly = new URLSearchParams(window.location.search).get('view') === 'camera-calibration';
 		// ============================================
 		// Mobile Companion JavaScript
 		// ============================================
@@ -1771,6 +1773,7 @@
 		let heartbeatInterval = null;
 
 		// DOM Elements
+		const mobileCalibration = calibrationOnly ? undefined : window.JumperMobileCalibration?.mount();
 		const chatContainer = document.getElementById('chat-container');
 		const connectionStatus = document.getElementById('connection-status');
 		const statusDot = document.getElementById('status-dot');
@@ -2167,6 +2170,9 @@
 			if (!event?.kind) return;
 			const payload = event.payload || {};
 			switch (event.kind) {
+				case 'camera.calibration.offer':
+					mobileCalibration?.offer(payload);
+					return;
 				case 'workspace.snapshot':
 					workspaceFiles = Array.isArray(payload.files) ? payload.files : [];
 					workspaceRootName = payload.rootName || 'Proje Dosyaları';
@@ -3464,6 +3470,7 @@
 		// Session Management
 		// ============================================
 		async function initSession() {
+			if (calibrationOnly) return;
 			if (!SESSION_ID || !SESSION_TOKEN || !ENCRYPTED_KEY) {
 				showError('Geçersiz bağlantı parametreleri');
 				return;
@@ -4081,6 +4088,7 @@
 		// UI Updates
 		// ============================================
 		function setConnected(connected) {
+			mobileCalibration?.setConnected(connected);
 			isConnected = connected;
 			statusDot.classList.toggle('disconnected', !connected);
 			statusText.textContent = connected ? 'Bağlı' : 'Bağlantı kesildi';
@@ -4169,7 +4177,10 @@
 		// ============================================
 		// Initialize
 		// ============================================
-		initSession();
+		if (calibrationOnly) {
+			if (window.JumperMobileCalibration) window.JumperMobileCalibration.showStandalone();
+			else document.body.textContent = 'Ölçüm deseni yüklenemedi. Sayfayı yenileyin.';
+		} else initSession();
 	</script>
 </body>
 

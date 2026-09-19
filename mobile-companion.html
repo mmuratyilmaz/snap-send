@@ -1725,6 +1725,7 @@
 	<input type="file" class="hidden-input" id="video-input" accept="video/*" capture="environment">
 
 	<script src="./mobile-calibration.js?v=20260910-1"></script>
+	<script src="./live-video.js?v=20260919-live2"></script>
 	<script>
 		const calibrationOnly = new URLSearchParams(window.location.search).get('view') === 'camera-calibration';
 		// ============================================
@@ -2287,6 +2288,11 @@
 		// ============================================
 		class MobileLiveClient {
 			constructor() {
+				this.videoChannel = null;
+				this.videoNegotiated = false;
+				this.liveState = {};
+				this.playbackSource = null;
+				this.playbackGeneration = 0;
 				this.peer = null;
 				this.channel = null;
 				this.stream = null;
@@ -2321,6 +2327,33 @@
 				this.audioStreamEndTimer = null;
 				this.readyChimeTimer = null;
 				this._bindRecorderLifecycleRecovery();
+				this._bindCameraControls();
+			}
+
+			_bindCameraControls() {
+				const panel = document.createElement('div');
+				panel.style.cssText = 'padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+				panel.innerHTML = '<button type="button" disabled>Kamerayı paylaş</button><button type="button" hidden>Ön / arka kamera</button><span role="status">Kamera kapalı</span><video autoplay muted playsinline hidden style="width:160px;max-height:120px;border-radius:8px"></video>';
+				document.getElementById('mobile-live-status').after(panel);
+				const [toggle, flip] = panel.querySelectorAll('button');
+				this.cameraToggle = toggle;
+				this.camera = new JumperLiveVideo.CameraSender({ video: panel.querySelector('video'),
+					state: () => ({ supported: this.videoNegotiated && this.liveState.capabilities?.videoFrames === true,
+						ready: this.sessionReady, sessionId: this.liveState.sessionId, printerObservation: this.liveState.printerObservation,
+						channel: this.videoChannel, audioBuffered: this.channel?.bufferedAmount || 0 }),
+					status: text => { panel.querySelector('span').textContent = text; toggle.textContent = this.camera?.enabled ? 'Paylaşımı durdur' : 'Kamerayı paylaş'; flip.hidden = !this.camera?.enabled; }
+				});
+				toggle.onclick = () => this.camera.enabled ? this.camera.stop() : void this.camera.start();
+				flip.onclick = () => void this.camera.switchCamera();
+			}
+
+			_stopPlayback() {
+				this.playbackGeneration++;
+				this.playbackProcessing = false;
+				this.audioQueue.length = 0;
+				if (this.playbackSource) { this.playbackSource.onended = null; try { this.playbackSource.stop(); } catch {} }
+				this.playbackSource = null; this.playing = false; this.playbackStarted = false;
+				this._setSpeaking('assistant', false);
 			}
 
 			async toggle() {
@@ -2385,6 +2418,10 @@
 				}
 				this.sessionReady = false;
 				this._clearTimers({ keepReconnect: preserveRequest });
+				this.camera.stop();
+				this.videoChannel?.close(); this.videoChannel = null; this.videoNegotiated = false;
+				this.cameraToggle.disabled = true;
+				this._stopPlayback();
 				this._cancelAudioStreamEnd();
 				this._stopRecorder();
 				this._setSpeaking('user', false);
@@ -2392,10 +2429,11 @@
 				if (notifyHost && this.channel?.readyState === 'open') {
 					this._send({ command: 'live.stop' });
 				}
-				try { this.channel?.close(); } catch { }
-				try { this.peer?.close(); } catch { }
+				const channel = this.channel, peer = this.peer;
 				this.channel = null;
 				this.peer = null;
+				try { channel?.close(); } catch { }
+				try { peer?.close(); } catch { }
 				this.audioQueue.length = 0;
 				this.lastAudioSig = null;
 				this.playing = false;
@@ -2411,7 +2449,7 @@
 					this.reconnectAttempts = 0;
 					this.setMicMuted(false, { silent: true });
 					this._setButtonActive(false);
-					this._setStatus('idle', 'Live kapalı', true);
+					if (!keepStatus) { this._setStatus('idle', 'Live kapalı', true); }
 				}
 			}
 
@@ -2453,7 +2491,7 @@
 			}
 
 			_scheduleAudioStreamEnd() {
-				this._cancelAudioStreamEnd();
+				if (this.audioStreamEndTimer || this.audioStreamEndSent) return;
 				this.audioStreamEndTimer = setTimeout(() => {
 					this.audioStreamEndTimer = null;
 					if (!this.requested || !this.sessionReady || !this.micMuted || this.channel?.readyState !== 'open') {
@@ -2461,12 +2499,14 @@
 					}
 					try {
 						this._send({ command: 'live.audioStreamEnd' });
+						this.audioStreamEndSent = true;
 						void sendMobileDebugLog('live.audioStreamEnd.sent', { reason: 'mobile-mute' });
 					} catch { }
 				}, 900);
 			}
 
 			_cancelAudioStreamEnd() {
+				this.audioStreamEndSent = false;
 				if (this.audioStreamEndTimer) {
 					clearTimeout(this.audioStreamEndTimer);
 					this.audioStreamEndTimer = null;
@@ -2521,6 +2561,7 @@
 					void sendMobileDebugLog('webrtc.iceConnection.state', { state: peer.iceConnectionState });
 				};
 				peer.onconnectionstatechange = () => {
+					if (this.peer !== peer) { return; }
 					const state = peer.connectionState;
 					void sendMobileDebugLog('webrtc.connection.state', { state });
 					if (state === 'failed' || state === 'disconnected' || state === 'closed') {
@@ -2548,6 +2589,7 @@
 
 			_attachChannel(channel) {
 				channel.onopen = () => {
+					if (this.channel !== channel || !this.requested) { return; }
 					this._clearConnectTimer();
 					this.lastHostEventAt = Date.now();
 					this.reconnectAttempts = 0;
@@ -2557,8 +2599,9 @@
 					this._setStatus('connecting', 'Gemini Live başlatılıyor...');
 					this._send({ command: 'live.start' });
 				};
-				channel.onmessage = (event) => this._handleHostEvent(event.data);
+				channel.onmessage = (event) => { if (this.channel === channel && this.requested) { this._handleHostEvent(event.data); } };
 				channel.onclose = () => {
+					if (this.channel !== channel) { return; }
 					void sendMobileDebugLog('datachannel.close', {
 						requested: this.requested,
 						peerState: this.peer?.connectionState || null
@@ -2569,6 +2612,7 @@
 					}
 				};
 				channel.onerror = (event) => {
+					if (this.channel !== channel) { return; }
 					console.warn('[MobileLive] channel error:', event);
 					void sendMobileDebugLog('datachannel.error', {
 						type: event?.type || 'error',
@@ -2602,7 +2646,13 @@
 				}
 				switch (event.command) {
 					case 'bridge.ready':
+						if (event.version === JumperLiveVideo.VERSION && event.capabilities?.videoFrames) this._send({ command: 'bridge.capabilities', version: JumperLiveVideo.VERSION, capabilities: { videoFrames: true } });
 						this._setStatus('connecting', 'PC Live köprüsü hazır.');
+						break;
+					case 'bridge.capabilities':
+						this.videoNegotiated = event.version === JumperLiveVideo.VERSION && event.capabilities?.videoFrames === true;
+						if (this.videoNegotiated && !this.videoChannel) this.videoChannel = this.peer.createDataChannel(JumperLiveVideo.CHANNEL, { ordered: false, maxRetransmits: 0 });
+						this.cameraToggle.disabled = !this.videoNegotiated || this.liveState.capabilities?.videoFrames !== true;
 						break;
 					case 'bridge.status':
 						if (event.state === 'connected') {
@@ -2610,7 +2660,20 @@
 						}
 						break;
 					case 'live.status':
-						this._handleLiveStatus(event.state, event.message);
+						this.liveState = { ...this.liveState, ...event };
+						this.cameraToggle.disabled = !this.videoNegotiated || this.liveState.capabilities?.videoFrames !== true;
+						this._handleLiveStatus(event.state, event.message, event.managedReconnect);
+						if (this.liveState.capabilities?.videoFrames === false) this.camera.stop();
+						break;
+					case 'live.activity':
+						this.liveState = { ...this.liveState, ...event }; this.camera.updateStatus();
+						break;
+					case 'live.taskState':
+						this.taskState = event.payload;
+						break;
+					case 'live.generationComplete':
+						this.playbackStarted = true;
+						if (!this.playbackSource) void this._processAudioQueue();
 						break;
 					case 'live.transcript':
 						this._handleTranscript(event);
@@ -2619,6 +2682,7 @@
 						this._handleAudioChunk(event);
 						break;
 					case 'live.interrupted':
+						this._stopPlayback();
 						this.audioQueue.length = 0;
 						this.lastAudioSig = null;
 						this.playbackStarted = false;
@@ -2630,9 +2694,16 @@
 				}
 			}
 
-			_handleLiveStatus(state, message) {
+			_handleLiveStatus(state, message, managedReconnect = false) {
 				const normalized = state || 'idle';
+				this.hostLiveState = normalized;
 				this._setStatus(normalized, message || 'Gemini Live');
+				if (normalized === 'connecting' || normalized === 'reconnecting') {
+					this.sessionReady = false;
+					clearTimeout(this.hostRestartTimer);
+					this.hostRestartTimer = null;
+					return; // Host owns recovery; retain the healthy RTC transport and microphone.
+				}
 				if (normalized === 'connected' || normalized === 'open' || normalized === 'active') {
 					this.sessionReady = true;
 					this._startRecorder().catch(error => {
@@ -2646,7 +2717,9 @@
 					this._stopRecorder();
 					this._setSpeaking('user', false);
 					this._setSpeaking('assistant', false);
-					if (this.requested) {
+					if (managedReconnect) {
+						void this.stop(false, { keepStatus: true });
+					} else if (this.requested) {
 						this._setButtonActive(true);
 						this._setStatus('connecting', 'Gemini Live yeniden baÄŸlanÄ±yor...');
 						this._scheduleHostLiveRestart(normalized);
@@ -2657,7 +2730,7 @@
 			}
 
 			_handleTranscript(event) {
-				if (!event.text || event.role !== 'model') {
+				if (!event.text || !['assistant', 'model'].includes(event.role)) {
 					return;
 				}
 				this._setStatus('active', event.text);
@@ -2668,16 +2741,6 @@
 					return;
 				}
 				const mime = event.mimeType || 'audio/pcm;rate=24000';
-				const sig = { len: event.audioBase64.length, mime };
-				if (
-					/audio\/pcm/i.test(mime) &&
-					this.lastAudioSig &&
-					!/audio\/pcm/i.test(this.lastAudioSig.mime || '') &&
-					this.lastAudioSig.len === sig.len
-				) {
-					return;
-				}
-				this.lastAudioSig = sig;
 				this.audioQueue.push({
 					data: event.audioBase64,
 					mimeType: mime
@@ -2991,6 +3054,8 @@
 			}
 
 			async _processAudioQueue() {
+				if (this.playbackSource || this.playbackProcessing) return;
+				const generation = this.playbackGeneration;
 				if (!this.audioQueue.length) {
 					this.playing = false;
 					this._setSpeaking('assistant', false);
@@ -3003,6 +3068,7 @@
 				this.playbackStarted = true;
 				this.playing = true;
 				const chunk = this.audioQueue.shift();
+				this.playbackProcessing = true;
 				try {
 					const ctx = this._ensurePlaybackContext();
 					if (ctx.state === 'suspended') {
@@ -3021,16 +3087,21 @@
 					}
 					const source = ctx.createBufferSource();
 					source.buffer = audioBuffer;
+					if (generation !== this.playbackGeneration) return;
+					this.playbackSource = source;
 					source.connect(ctx.destination);
 					source.onended = () => {
-						this._setSpeaking('assistant', false);
+						if (generation !== this.playbackGeneration) return;
+						if (this.playbackSource === source) this.playbackSource = null;
 						void this._processAudioQueue();
 					};
 					this._setSpeaking('assistant', true);
 					source.start();
 				} catch (error) {
 					console.warn('[MobileLive] playback failed:', error);
-					void this._processAudioQueue();
+					queueMicrotask(() => this._processAudioQueue());
+				} finally {
+					if (generation === this.playbackGeneration) this.playbackProcessing = false;
 				}
 			}
 
@@ -3132,7 +3203,7 @@
 				if (!this.requested || this.channel?.readyState !== 'open') {
 					return;
 				}
-				if (this.micMuted) {
+				if (this.micMuted || !this.sessionReady || this.hostLiveState === 'connecting' || this.hostLiveState === 'reconnecting') {
 					this._scheduleWatchdog();
 					return;
 				}
@@ -3159,15 +3230,19 @@
 					peerState: this.peer?.connectionState || null
 				}, 'warn');
 				this.sessionReady = false;
+				this.videoChannel?.close(); this.videoChannel = null; this.videoNegotiated = false;
+				this.cameraToggle.disabled = true;
+				this._stopPlayback();
 				this._stopRecorder();
 				if (this.channel?.readyState === 'open') {
 					try { this._send({ command: 'live.audioStreamEnd' }); } catch { }
 					try { this._send({ command: 'live.turnComplete' }); } catch { }
 				}
-				try { this.channel?.close(); } catch { }
-				try { this.peer?.close(); } catch { }
+				const channel = this.channel, peer = this.peer;
 				this.channel = null;
 				this.peer = null;
+				try { channel?.close(); } catch { }
+				try { peer?.close(); } catch { }
 				this.audioQueue.length = 0;
 				this.playbackStarted = false;
 				this.lastAudioSig = null;
@@ -3373,6 +3448,7 @@
 			}
 
 			_setSpeaking(role, speaking) {
+				this._send({ command: 'live.playbackState', role, playing: speaking });
 				if (!inputArea) {
 					return;
 				}
@@ -3385,7 +3461,7 @@
 					if (this[timerName]) {
 						clearTimeout(this[timerName]);
 					}
-					this[timerName] = setTimeout(() => this._setSpeaking(role, false), 260);
+					if (role === 'user') this[timerName] = setTimeout(() => this._setSpeaking(role, false), 260);
 				} else {
 					inputArea.classList.remove(className);
 					const timerName = role === 'assistant' ? 'assistantSpeakingTimer' : 'userSpeakingTimer';

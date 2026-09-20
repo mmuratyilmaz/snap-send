@@ -24,7 +24,42 @@
 		ja: ['プレビューを開く','プレビューを停止','コンパイル','ボードへ書き込み','修正してコンパイル','シリアルモニターを開く','シリアルモニターを閉じる','シリアルモニターを再起動','ポートを選択','デバイスを識別','承認','拒否']
 	};
 	for (const [language, values] of Object.entries(controlWords)) values.forEach((value,index)=>{words[language][controlKeys[index]]=value;});
-	function label(key, language, fallbackLanguage) { return (words[String(language || '').split('-')[0]] || words[String(fallbackLanguage || 'en').split('-')[0]] || words.en)[key] || words.en[key] || key; }
+	// Existing card labels use application-locale fallback until that particular key
+	// has a translation. These exact UI keys never rewrite model-authored prose.
+	const cardLabels = {
+		'Derleme Baslatilamadi':'Compilation could not start', 'Hedef Kart Secimi Gerekli':'Select a target board', 'Gecerli Hedef Bulunamadi':'No valid target',
+		'Derleme Basarili':'Compiled', 'Derleme Basarisiz':'Compilation failed', 'Derle ve Yukle Baslatilamadi':'Compile and upload could not start',
+		'Yukleme Baslatilamadi':'Upload could not start', 'Firmware Hedef Topolojisi Tutarsiz':'Firmware targets are inconsistent',
+		'Port Baglama Gerekli':'Select a port', 'Yukleme Icin Net Baglama Gerekli':'Confirm the upload connection',
+		'Derle ve Yukle Basarisiz':'Compile and upload incomplete', 'Derlendi ve Yuklendi':'Compiled and uploaded', 'Yukleme Basarili':'Uploaded',
+		'Yukleme Basarisiz':'Upload failed', 'Seri Monitor Kapatildi':'Serial monitor closed', 'Bekleyen Build Hatasi Yok':'No pending build error',
+		'Duzeltildi ve Derlendi':'Repaired and compiled', 'Fix Sonrasi Derleme Hala Basarisiz':'Compilation still failed after repair',
+		'Desteklenmeyen Firmware Operasyonu':'Unsupported firmware operation', 'Bağlantı toparlanıyor':'Connection recovering',
+		'Seçim bekliyor':'Awaiting selection', 'Açıklama bekliyor':'Awaiting clarification', 'Onay bekliyor':'Awaiting approval',
+		'Sepete Git':'Open basket', 'Sepet hazir':'Basket prepared', 'Sipariş':'Order', 'Sipariş Kodu':'Order code', 'Sipariş Tarihi':'Order date',
+		'Toplam Tutar':'Total amount', 'Ürün Sayısı':'Item count', 'Toplam':'Total', 'Sepet':'Basket',
+		'Yeni Sipariş':'New order', 'İptal Edildi':'Cancelled', 'Teslim Edildi':'Delivered', 'Kargoya Verildi':'Shipped', 'Hazırlanıyor':'Preparing',
+		'Onaylandı':'Confirmed', 'Sipariş Alındı':'Order received', 'Sipariş Alınacak':'Order pending', 'Onay Bekliyor':'Awaiting confirmation',
+		'Hazırlandı':'Prepared', 'Hazırlanacak':'Preparation pending', 'Kargoya Verilecek':'Shipment pending', 'Teslim Edilecek':'Delivery pending',
+		'Hedefler':'Targets', 'Ortam':'Environment', 'Kart':'Board', 'Port':'Port', 'Ilk hata':'First error', 'İlk hata':'First error'
+	};
+	for (const [source, english] of Object.entries(cardLabels)) { words.tr['card:' + source] = source; words.en['card:' + source] = english; }
+	words.tr.details = 'Teknik ayrıntılar'; words.en.details = 'Technical details';
+	for (const [language, values] of Object.entries({ tr:['Yeniden dene','İptal et'], en:['Retry','Cancel'], de:['Erneut versuchen','Abbrechen'], es:['Reintentar','Cancelar'], ar:['إعادة المحاولة','إلغاء'], ja:['再試行','キャンセル'] })) { words[language].retryTask = values[0]; words[language].cancel = values[1]; }
+	function label(key, language, fallbackLanguage) { return words[String(language || '').split('-')[0]]?.[key] || words[String(fallbackLanguage || 'en').split('-')[0]]?.[key] || words.en[key] || key; }
+	function localizeCard(root, language, fallbackLanguage) {
+		for (const node of root.querySelectorAll('.jumper-firmware-card > strong,.jumper-firmware-card > ul > li,.jumper-pending-badge,.nexmaker-cart-button,.cart-summary-subtitle,.cart-summary-total,.nexmaker-cart-total,.cart-summary-count,.order-title,.order-subtitle,.order-meta-line,.order-step-label')) {
+			if (node.children.length) continue;
+			const value = node.textContent, colon = value.indexOf(':');
+			const key = colon === -1 ? value.trim() : value.slice(0, colon).trim();
+			if (Object.hasOwn(cardLabels, key)) node.textContent = label('card:' + key, language, fallbackLanguage) + (colon === -1 ? '' : value.slice(colon));
+		}
+		// Exact operational values and logs stay available; the editor explains them.
+		for (const list of root.querySelectorAll('.jumper-firmware-card > ul')) {
+			const details = window.document.createElement('details'), summary = window.document.createElement('summary');
+			summary.textContent = label('details', language, fallbackLanguage); list.replaceWith(details); details.append(summary, list);
+		}
+	}
 	function commandLabel(command, args, language, fallbackLanguage) {
 		const key = { 'jumper-chat.runUiPreview':'preview','jumper-chat.stopUiPreview':'stopPreview','jumper-chat.firmwareCompile':'compile',
 			'jumper-chat.firmwareUpload':'upload','jumper-chat.firmwareFixAndRebuild':'fixCompile','jumper-chat.firmwareOpenSerialMonitor':'serialOpen',
@@ -81,10 +116,11 @@
 			const component = components.get(section.componentId);
 			if (!component) return '';
 			const el = documentFor(legacy(component.html));
-			if (mobile) for (const button of el.querySelectorAll('button[data-open-url]')) {
+			if (mobile) for (const button of el.querySelectorAll('[data-open-url]')) {
 				const url = button.getAttribute('data-open-url');
 				if (!/^https?:/i.test(url || '')) continue;
-				const link = window.document.createElement('a'); link.href = url; link.textContent = button.textContent;
+				const link = window.document.createElement('a'); link.href = url; link.innerHTML = button.innerHTML;
+				if (button.getAttribute('aria-label')) link.setAttribute('aria-label', button.getAttribute('aria-label'));
 				link.className = button.className; link.target = '_blank'; link.rel = 'noopener noreferrer'; button.replaceWith(link);
 			}
 			if (mobile) for (const button of el.querySelectorAll('button,[data-command], [data-printer-photo]')) {
@@ -113,5 +149,5 @@
 			button.addEventListener('click', () => window.navigator.clipboard?.writeText(code.textContent)); block.prepend(button);
 		}
 	}
-	return { markdown, layoutIssues, legacy, text, speech, label, commandLabel, render, mount, documentFor, escape };
+	return { markdown, layoutIssues, legacy, text, speech, label, commandLabel, localizeCard, render, mount, documentFor, escape };
 });

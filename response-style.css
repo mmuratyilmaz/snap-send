@@ -1,0 +1,19 @@
+.jumper-response { font-family: var(--vscode-font-family, system-ui, sans-serif); font-size: var(--vscode-font-size, 13px); line-height: 1.65; overflow-wrap: anywhere; min-width: 0; }
+.jumper-response-prose p { margin: .65em 0; }
+.jumper-response-prose > :first-child { margin-top: 0; }
+.jumper-response-prose > :last-child { margin-bottom: 0; }
+.jumper-response-prose + .jumper-response-prose, .jumper-response-component { margin-block: 1em; }
+.jumper-response-prose h1, .jumper-response-prose h2, .jumper-response-prose h3 { font-size: 1.12em; line-height: 1.4; margin: 1.25em 0 .5em; }
+.jumper-response-prose ul, .jumper-response-prose ol { padding-inline-start: 1.6em; margin: .65em 0; }
+.jumper-response-prose li { margin: .35em 0; }
+.jumper-response-prose pre { position: relative; overflow-x: auto; padding: 2.4em 1em 1em; border-radius: 8px; background: var(--vscode-textCodeBlock-background, #20232a); color: var(--vscode-editor-foreground, #e7eaf0); white-space: pre; }
+.jumper-response-prose code { font-family: var(--vscode-editor-font-family, monospace); font-size: .92em; }
+.jumper-response-prose :not(pre) > code { background: var(--vscode-textCodeBlock-background, #32353c); color: var(--vscode-editor-foreground, #eee); padding: .12em .32em; border-radius: 4px; }
+.jumper-code-copy { position: absolute; inset-inline-end: .5em; top: .35em; cursor: pointer; border: 0; border-radius: 4px; padding: .3em .6em; background: var(--vscode-button-secondaryBackground, #454a54); color: var(--vscode-button-secondaryForeground, #fff); }
+.jumper-response-prose table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; margin-block: 1em; }
+.jumper-response-prose th, .jumper-response-prose td { padding: .55em .8em; border-bottom: 1px solid var(--vscode-panel-border, #69717b); text-align: start; vertical-align: top; }
+.jumper-response-prose blockquote { margin-inline: 0; padding-inline-start: 1em; border-inline-start: 3px solid var(--vscode-textBlockQuote-border, #687486); }
+.jumper-response-prose img { max-width: 100%; height: auto; }
+.jumper-response a { color: var(--vscode-textLink-foreground, #65b3ff); text-decoration: none; }
+.jumper-response a:hover { text-decoration: underline; }
+.jumper-response button:focus-visible, .jumper-response a:focus-visible { outline: 2px solid var(--vscode-focusBorder, #4ba5ff); outline-offset: 3px; }

@@ -1591,6 +1591,7 @@
 			}
 		}
 	</style>
+<link rel="stylesheet" href="./response-style.css?v=response-1">
 </head>
 
 <body>
@@ -1724,6 +1725,9 @@
 	<input type="file" class="hidden-input" id="gallery-input" accept="image/*" multiple>
 	<input type="file" class="hidden-input" id="video-input" accept="video/*" capture="environment">
 
+	<script src="./response-vendor/marked.js"></script>
+<script src="./response-vendor/purify.js"></script>
+<script src="./response-renderer.js?v=response-1"></script>
 	<script src="./mobile-calibration.js?v=20260910-1"></script>
 	<script src="./live-video.js?v=20260919-live2"></script>
 	<script>
@@ -3790,7 +3794,7 @@
 						renderMessage(message);
 						processedResponseSequences.add(seq);
 						lastSyncSequence = Math.max(lastSyncSequence, seq);
-						scrollToBottom();
+						
 					} catch (decodeError) {
 						console.warn('Message decode error:', decodeError);
 						// Fallback: eski yöntemle dene
@@ -3816,7 +3820,7 @@
 								renderMessage(message);
 								processedResponseSequences.add(seq);
 								lastSyncSequence = Math.max(lastSyncSequence, seq);
-								scrollToBottom();
+								
 							}
 						} catch (fallbackError) {
 							console.warn('Fallback also failed:', fallbackError);
@@ -3832,6 +3836,7 @@
 		// Message Rendering
 		// ============================================
 		function renderMessage(msg) {
+			const followLatest = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 80 || msg.role === 'user';
 			// Duplikasyon kontrolü - aynı mesaj ID'si zaten render edilmişse atla
 			if (msg.id && document.querySelector(`[data-message-id="${msg.id}"]`)) {
 				console.log('Message already rendered, skipping:', msg.id);
@@ -3917,11 +3922,14 @@
 				}
 			} else {
 				// Assistant message - render HTML
-				bubble.innerHTML = msg.content;
+				if (msg.response?.version === 1 && window.JumperResponse) {
+					window.JumperResponse.mount(bubble, msg.response, { mobile: true, copyLabel: msg.response.language?.startsWith('tr') ? 'Kopyala' : 'Copy' });
+				} else { bubble.innerHTML = window.JumperResponse ? window.JumperResponse.legacy(msg.content) : ''; }
 			}
 
 			div.appendChild(bubble);
 			chatContainer.appendChild(div);
+			if (followLatest) scrollToBottom();
 		}
 
 		function scrollToBottom() {

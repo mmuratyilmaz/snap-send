@@ -3794,7 +3794,7 @@
 						renderMessage(message);
 						processedResponseSequences.add(seq);
 						lastSyncSequence = Math.max(lastSyncSequence, seq);
-						
+
 					} catch (decodeError) {
 						console.warn('Message decode error:', decodeError);
 						// Fallback: eski yöntemle dene
@@ -3820,7 +3820,7 @@
 								renderMessage(message);
 								processedResponseSequences.add(seq);
 								lastSyncSequence = Math.max(lastSyncSequence, seq);
-								
+
 							}
 						} catch (fallbackError) {
 							console.warn('Fallback also failed:', fallbackError);
